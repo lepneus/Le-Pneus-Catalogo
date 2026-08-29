@@ -193,6 +193,11 @@ button, input { font-family: inherit; }
   background: var(--safety); border: none; color: var(--asphalt); font-weight: 700; font-size: 12px;
   padding: 6px 12px; border-radius: 4px; cursor: pointer; display: inline-flex; align-items: center; gap: 5px;
 }
+.import-btn {
+  background: var(--rubber-light); border: 1px solid var(--line); color: var(--chalk); font-weight: 600; font-size: 12px;
+  padding: 6px 12px; border-radius: 4px; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; margin-left: 8px;
+}
+.import-btn:hover { border-color: var(--safety); }
 
 .product-card {
   background: var(--rubber); border: 1px solid var(--line); border-radius: 6px; overflow: hidden;
@@ -336,6 +341,7 @@ button, input { font-family: inherit; }
 
 <!-- Overlay -->
 <div class="overlay" id="overlay"></div>
+<input type="file" id="importFileInput" accept=".xlsx,.xls,.csv" style="display:none;">
 
 <!-- Modal: senha admin -->
 <div class="modal password-modal" id="passwordModal">
@@ -429,6 +435,7 @@ button, input { font-family: inherit; }
 
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>
 const firebaseConfig = {
   apiKey: "AIzaSyBGS1CZD-jgQsLcL7wLnXqBZbodrAC-cIQ",
@@ -522,6 +529,85 @@ async function deleteProductFromCloud(id) {
   }
 }
 
+/* ---- Importação de planilha (Excel/CSV) ---- */
+function normalizeHeader(h) {
+  return String(h || '').trim().toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, ''); // remove acentos
+}
+
+function parseBool(v) {
+  const s = String(v || '').trim().toLowerCase();
+  return s === 'sim' || s === 'true' || s === '1' || s === 'yes';
+}
+
+async function importSpreadsheet(file) {
+  try {
+    const buffer = await file.arrayBuffer();
+    const workbook = XLSX.read(buffer, { type: 'array' });
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+
+    if (rows.length === 0) {
+      alert('A planilha está vazia ou não foi possível lê-la.');
+      return;
+    }
+
+    let added = 0, updated = 0, skipped = 0;
+    const batch = db.batch();
+
+    rows.forEach(row => {
+      const map = {};
+      Object.keys(row).forEach(key => { map[normalizeHeader(key)] = row[key]; });
+
+      const brand = String(map['marca'] || '').trim();
+      const model = String(map['modelo'] || '').trim();
+      const size = String(map['medida'] || '').trim();
+      const price = parseFloat(map['preco']) || 0;
+
+      if (!brand || !model || !size || !price) { skipped++; return; }
+
+      const data = {
+        categoria: (String(map['categoria'] || '').trim() === 'Câmara de ar' || normalizeHeader(map['categoria']) === 'camara de ar') ? 'Câmara de ar' : 'Pneu',
+        brand, model, size,
+        load: String(map['carga'] || '').trim(),
+        app: String(map['aplicacao'] || '').trim(),
+        price,
+        stock: parseInt(map['estoque'], 10) || 0,
+        promo: parseBool(map['oferta']),
+        image: String(map['foto'] || '').trim(),
+      };
+
+      // Tenta encontrar um item já existente (mesma categoria + marca + modelo + medida) para atualizar em vez de duplicar
+      const existing = products.find(p =>
+        (p.categoria || 'Pneu') === data.categoria &&
+        p.brand.toLowerCase() === brand.toLowerCase() &&
+        p.model.toLowerCase() === model.toLowerCase() &&
+        p.size.toLowerCase() === size.toLowerCase()
+      );
+
+      if (existing) {
+        batch.set(db.collection('produtos').doc(existing.id), data, { merge: true });
+        updated++;
+      } else {
+        batch.set(db.collection('produtos').doc(), data);
+        added++;
+      }
+    });
+
+    await batch.commit();
+    alert(`Importação concluída!\n${added} item(ns) novo(s) adicionado(s)\n${updated} item(ns) atualizado(s)${skipped > 0 ? `\n${skipped} linha(s) ignorada(s) por faltar marca, modelo, medida ou preço` : ''}`);
+  } catch (e) {
+    console.error(e);
+    alert('Não foi possível importar a planilha. Confira se o arquivo está no formato .xlsx, .xls ou .csv e se as colunas estão com os nomes certos (marca, modelo, medida, carga, aplicacao, preco, estoque, oferta, foto, categoria).');
+  }
+}
+
+document.getElementById('importFileInput').addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (file) importSpreadsheet(file);
+  e.target.value = '';
+});
+
 function getCategoryProducts() { return products.filter(p => (p.categoria || "Pneu") === categoryFilter); }
 function getBrands() { return [...new Set(getCategoryProducts().map(p => p.brand))]; }
 function getApps() { return [...new Set(getCategoryProducts().map(p => p.app).filter(Boolean))]; }
@@ -556,7 +642,7 @@ function renderGrid() {
   const filtered = getFiltered();
   const itemLabel = categoryFilter === "Pneu" ? "pneu(s)" : "câmara(s) de ar";
   let html = `<div class="results-count"><span>${filtered.length} ${itemLabel} encontrado(s)</span>`;
-  if (adminMode) html += `<button class="new-product-btn" id="newProductBtn">+ Adicionar item</button>`;
+  if (adminMode) html += `<button class="new-product-btn" id="newProductBtn">+ Adicionar item</button><button class="import-btn" id="importBtn">📄 Importar planilha</button>`;
   html += `</div>`;
 
   if (filtered.length === 0) {
@@ -597,6 +683,8 @@ function renderGrid() {
   grid.querySelectorAll('[data-delete]').forEach(btn => btn.addEventListener('click', (e) => { e.stopPropagation(); deleteProduct(btn.dataset.delete); }));
   const newBtn = document.getElementById('newProductBtn');
   if (newBtn) newBtn.addEventListener('click', () => openForm(null));
+  const importBtn = document.getElementById('importBtn');
+  if (importBtn) importBtn.addEventListener('click', () => document.getElementById('importFileInput').click());
 }
 
 function renderLowStockBanner() {
