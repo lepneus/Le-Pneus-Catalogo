@@ -931,7 +931,7 @@ document.getElementById('whatsappBtn').addEventListener('click', async () => {
   } catch (e) {
     console.error('Não foi possível registrar o pedido:', e);
   }
- window.location.href = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(text)}`;
+  window.location.href = `https://wa.me/${WHATSAPP_NUMBER}?text=${text}`;
 });
 
 /* ---- Busca ---- */
