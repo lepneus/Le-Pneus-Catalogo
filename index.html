@@ -302,6 +302,15 @@ button, input { font-family: inherit; }
   .bulk-image-row { grid-template-columns:54px 1fr; }
   .bulk-image-match { grid-column:2; }
 }
+
+/* Resumo de estoque no modo de edição */
+.stock-summary { max-width:1180px; margin:12px auto 0; padding:0 20px; }
+.stock-summary-inner { display:flex; gap:10px; flex-wrap:wrap; }
+.stock-summary-card { flex:1 1 180px; min-width:180px; padding:12px 14px; border:1px solid var(--line); border-radius:8px; background:var(--asphalt); }
+.stock-summary-card .label { display:block; font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.06em; }
+.stock-summary-card .value { display:block; margin-top:3px; font-size:24px; font-weight:800; color:var(--chalk); }
+.stock-summary-card .sub { display:block; margin-top:2px; font-size:11px; color:var(--muted); }
+
 </style>
 </style>
 
@@ -978,16 +987,36 @@ function tireStampHtml(size, load) {
   return `<div class="tire-stamp"><span class="tire-stamp-size">${size}</span><span class="tire-stamp-load">${load || ""}</span></div>`;
 }
 
+function getStockSummary() {
+  const valid = products.filter(p => {
+    const stock = Number(String(p.stock ?? 0).replace(',', '.'));
+    return Number.isFinite(stock) && stock > 0;
+  });
+  const car = valid.filter(p => normalizeCategoryValue(p.categoria || 'Pneu') === normalizeCategoryValue('Pneu')).reduce((sum,p) => sum + Number(String(p.stock ?? 0).replace(',', '.')), 0);
+  const moto = valid.filter(p => normalizeCategoryValue(p.categoria || 'Pneu') === normalizeCategoryValue('Pneu de moto')).reduce((sum,p) => sum + Number(String(p.stock ?? 0).replace(',', '.')), 0);
+  const accessories = valid.filter(p => normalizeCategoryValue(p.categoria || 'Pneu') === normalizeCategoryValue('Acessório')).reduce((sum,p) => sum + Number(String(p.stock ?? 0).replace(',', '.')), 0);
+  return { car, moto, tires: car + moto, accessories };
+}
+
 function renderGrid() {
   const grid = document.getElementById('productGrid');
   const filtered = getFiltered();
   const itemLabel = categoryFilter === "Pneu" ? "pneu(s) de carro" : categoryFilter === "Pneu de moto" ? "pneu(s) de moto" : "acessório(s)";
-  let html = `<div class="results-count"><span>${filtered.length} ${itemLabel} encontrado(s)</span>`;
+  let html = '';
+  if (adminMode) {
+    const st = getStockSummary();
+    html += `<div class="stock-summary"><div class="stock-summary-inner">
+      <div class="stock-summary-card"><span class="label">Pneus em estoque</span><span class="value">${st.tires}</span><span class="sub">carro + moto</span></div>
+      <div class="stock-summary-card"><span class="label">Pneus de carro</span><span class="value">${st.car}</span><span class="sub">unidades</span></div>
+      <div class="stock-summary-card"><span class="label">Pneus de moto</span><span class="value">${st.moto}</span><span class="sub">unidades</span></div>
+      <div class="stock-summary-card"><span class="label">Acessórios</span><span class="value">${st.accessories}</span><span class="sub">unidades</span></div>
+    </div></div>`;
+  }
+  html += `<div class="results-count"><span>${filtered.length} ${itemLabel} encontrado(s)</span>`;
   if (adminMode) html += `
     <button class="new-product-btn" id="newProductBtn">+ Adicionar item</button>
     <button class="import-btn" id="importBtn">📄 Importar planilha</button>
-    <button class="import-btn" id="deleteZeroStockBtn" style="background:#b91c1c;color:#fff;border-color:#b91c1c;">🗑️ Excluir sem estoque</button>
-    <button class="import-btn" id="deleteAllStockBtn" style="background:#7f1d1d;color:#fff;border-color:#7f1d1d;">⚠️ Excluir todo o estoque</button>
+    <button class="import-btn" id="deleteZeroStockBtn" style="background:#b91c1c;color:#fff;border-color:#b91c1c;">🗑️ Excluir estoque zerado</button>
   `;
   html += `</div>`;
 
@@ -1318,31 +1347,7 @@ async function deleteZeroStockByCategory() {
   }
 }
 
-async function deleteAllStock() {
-  if (!confirm('ATENÇÃO! Isso vai excluir TODOS os produtos do estoque (carro, moto e acessórios).\n\nTem certeza que deseja continuar?')) return;
-  if (!confirm('ÚLTIMA CONFIRMAÇÃO: todos os produtos serão apagados do Firebase e não poderão ser recuperados por este sistema. Continuar?')) return;
-  try {
-    const snap = await db.collection('produtos').get();
-    const docs = snap.docs;
-    if (!docs.length) { alert('O estoque já está vazio.'); return; }
-    for (let i = 0; i < docs.length; i += 450) {
-      const batch = db.batch();
-      docs.slice(i, i + 450).forEach(doc => batch.delete(doc.ref));
-      await batch.commit();
-    }
-    products = [];
-    render();
-    alert(`${docs.length} produtos foram excluídos do estoque.`);
-  } catch (e) {
-    console.error('Erro ao excluir todo o estoque:', e);
-    alert('Não foi possível excluir todo o estoque. Verifique as permissões do Firebase.');
-  }
-}
-
-document.addEventListener('click', (e) => {
-  if (e.target && e.target.id === 'deleteZeroStockBtn') deleteZeroStockByCategory();
-  if (e.target && e.target.id === 'deleteAllStockBtn') deleteAllStock();
-});
+document.addEventListener('click', (e) => { if (e.target && e.target.id === 'deleteZeroStockBtn') deleteZeroStockByCategory(); });
 
 bulkImagesInput.addEventListener('change', async () => {
   const files = [...bulkImagesInput.files].filter(f => f.type.startsWith('image/'));
