@@ -970,6 +970,7 @@ function renderGrid() {
     <button class="new-product-btn" id="newProductBtn">+ Adicionar item</button>
     <button class="import-btn" id="importBtn">📄 Importar planilha</button>
     <button class="import-btn" id="bulkImagesBtn">🖼️ Colocar imagens em lote</button>
+    <button class="import-btn" id="downloadImageListsBtn">⬇️ Baixar listas de imagens</button>
   `;
   html += `</div>`;
 
@@ -1218,6 +1219,56 @@ document.getElementById('bulkImagesBtn')?.addEventListener('click', () => {
   bulkImagesInput.value = '';
   bulkImagesInput.click();
 });
+
+// Baixa uma lista separada por categoria com as medidas/produtos que estão carregados no catálogo.
+// Isso serve como guia para preparar as imagens e evita inventar medidas que não existem no estoque.
+function normalizeFileName(value) {
+  return String(value || '')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-zA-Z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .toLowerCase();
+}
+
+function csvCell(value) {
+  return '"' + String(value ?? '').replace(/"/g, '""') + '"';
+}
+
+function downloadCsv(filename, rows) {
+  const csv = '\ufeff' + rows.map(row => row.map(csvCell).join(';')).join('\r\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function downloadImageLists() {
+  const categories = [
+    { key: 'Pneu', name: 'pneus-carro' },
+    { key: 'Pneu de moto', name: 'pneus-moto' },
+    { key: 'Acessórios', name: 'acessorios' }
+  ];
+
+  categories.forEach((cat, index) => {
+    const list = products.filter(p => (p.categoria || 'Pneu') === cat.key && Number(p.stock || 0) > 0);
+    const rows = [['Categoria','Marca','Modelo','Medida','Estoque','Nome sugerido da imagem']];
+    list.forEach(p => {
+      const base = normalizeFileName([p.brand, p.model, p.size].filter(Boolean).join(' '));
+      rows.push([cat.key, p.brand || '', p.model || '', p.size || '', p.stock || 0, base + '.jpg']);
+    });
+    downloadCsv('lista-imagens-' + cat.name + '.csv', rows);
+    if (index < categories.length - 1) setTimeout(() => {}, 250);
+  });
+
+  alert('Foram baixadas 3 listas: pneus de carro, pneus de moto e acessórios. Elas usam somente os itens com estoque disponível no catálogo.');
+}
+
+document.getElementById('downloadImageListsBtn')?.addEventListener('click', downloadImageLists);
 
 bulkImagesInput.addEventListener('change', async () => {
   const files = [...bulkImagesInput.files].filter(f => f.type.startsWith('image/'));
