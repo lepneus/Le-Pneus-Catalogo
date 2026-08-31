@@ -547,74 +547,120 @@ function parseBool(v) {
 
 async function importSpreadsheet(file) {
   try {
+    if (!file || !/\.xlsx?$/i.test(file.name)) {
+      alert('Selecione o arquivo Excel (.xlsx ou .xls).');
+      return;
+    }
+
     const buffer = await file.arrayBuffer();
     const workbook = XLSX.read(buffer, { type: 'array' });
 
-    // Aceita a planilha de estoque enviada: abas 13, 14, 15... 20.
-    // A aba "Remold" é ignorada conforme solicitado.
-    const sheetNames = workbook.SheetNames.filter(name => normalizeHeader(name) !== 'remold');
+    // Importa SOMENTE os aros 13 a 20. A aba Remold não entra.
+    const sheetNames = workbook.SheetNames.filter(name => {
+      const aro = String(name).trim();
+      return ['13','14','15','16','17','18','19','20'].includes(aro);
+    });
 
-    if (sheetNames.length === 0) {
-      alert('Nenhuma aba de pneus foi encontrada na planilha.');
+    if (!sheetNames.length) {
+      alert('Não encontrei as abas de aros 13 a 20 na planilha.');
       return;
     }
 
     let added = 0, updated = 0, skipped = 0;
     const batch = db.batch();
 
+    const normalizeName = value => String(value ?? '')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '');
+
     function parseTireName(rawName, sheetName) {
-      let full = String(rawName || '').replace(/\s+/g, ' ').trim();
+      const full = String(rawName ?? '').replace(/\s+/g, ' ').trim();
       if (!full) return null;
 
-      // Remove o prefixo "PNEU" usado em várias linhas da planilha.
       let clean = full.replace(/^PNEU\s+/i, '').trim();
-      let parts = clean.split(' ');
-      let brand = parts.shift() || 'Pneu';
+      const parts = clean.split(' ').filter(Boolean);
+      if (!parts.length) return null;
 
-      // Em nomes como "PNEU IMP BKT 600-9...", considera BKT como marca.
-      if (brand.toUpperCase() === 'IMP' && parts.length) {
-        brand = parts.shift();
-      }
+      let brand = parts.shift();
+      if (brand.toUpperCase() === 'IMP' && parts.length) brand = parts.shift();
 
-      let model = parts.join(' ').trim() || clean;
+      const model = parts.join(' ').trim() || clean;
 
-      // Tenta encontrar a medida real no nome.
       const sizeMatch =
-        clean.match(/\b\d{3}\s*[\/ ]\s*\d{2}\s*R\d{2}\b/i) ||
-        clean.match(/\b\d{3}\s*[\/ ]\s*\d{2}R\d{2}\b/i) ||
-        clean.match(/\b\d{3}\s*[\/ ]\s*\d{2}\s*\d{2}\b/i) ||
-        clean.match(/\b\d{3}-\d+\b/i);
+        clean.match(/\b\d{3}\s*[\/ ]\s*\d{2}\s*(?:ZR|R)\s*\d{2}\b/i) ||
+        clean.match(/\b\d{3}\s*-\s*\d+\b/i);
 
-      const size = sizeMatch ? sizeMatch[0].replace(/\s+/g, ' ').trim() : `R${sheetName}`;
-      const aro = String(sheetName).trim();
+      const size = sizeMatch
+        ? sizeMatch[0].replace(/\s+/g, ' ').trim()
+        : `R${sheetName}`;
 
-      return { brand, model, size, aro };
+      return {
+        brand,
+        model,
+        size,
+        aro: String(sheetName).trim()
+      };
     }
 
-    sheetNames.forEach(sheetName => {
+    for (const sheetName of sheetNames) {
       const sheet = workbook.Sheets[sheetName];
-      const rows = XLSX.utils.sheet_to_json(sheet, { defval: '' });
 
-      rows.forEach(row => {
+      // Lê a planilha usando a primeira linha de cada tabela como cabeçalho.
+      const rows = XLSX.utils.sheet_to_json(sheet, { defval: '', raw: true });
+
+      for (const row of rows) {
         const map = {};
-        Object.keys(row).forEach(key => { map[normalizeHeader(key)] = row[key]; });
+        Object.keys(row).forEach(key => {
+          map[normalizeHeader(key)] = row[key];
+        });
 
-        // Formato da planilha enviada:
-        // Pneu | Valor Venda | Estoque
-        const tireName = String(map['pneu'] || '').trim();
-        const price = Number(map['valor venda']);
-        const stock = parseInt(map['estoque'], 10);
+        const tireName = String(map['pneu'] ?? '').trim();
+        const priceRaw = map['valor venda'];
+        const stockRaw = map['estoque'];
 
-        if (!tireName || !Number.isFinite(price) || price <= 0) {
+        // Ignora linhas de totais/linhas vazias.
+        if (!tireName) {
           skipped++;
-          return;
+          continue;
+        }
+
+        const price = typeof priceRaw === 'number'
+          ? priceRaw
+          : Number(String(priceRaw ?? '').replace(/\./g, '').replace(',', '.'));
+
+        const stock = typeof stockRaw === 'number'
+          ? Math.trunc(stockRaw)
+          : parseInt(String(stockRaw ?? '').replace(/[^\d-]/g, ''), 10);
+
+        if (!Number.isFinite(price) || price <= 0 || !Number.isFinite(stock)) {
+          skipped++;
+          continue;
         }
 
         const parsed = parseTireName(tireName, sheetName);
         if (!parsed) {
           skipped++;
-          return;
+          continue;
         }
+
+        const importedName = normalizeName(tireName.replace(/^PNEU\s+/i, ''));
+        const importedAro = String(sheetName).trim();
+
+        // Primeiro tenta encontrar pelo nome completo + aro.
+        // Assim a importação atualiza o estoque do pneu existente em vez de duplicá-lo.
+        const existing = products.find(p => {
+          const currentName = normalizeName(
+            `${p.brand || ''} ${p.model || ''}`
+          );
+          const currentAro = String(
+            p.aro || (String(p.size || '').match(/R(\d{2})/i)?.[1] || '')
+          ).trim();
+
+          return currentName === importedName && currentAro === importedAro;
+        });
 
         const data = {
           categoria: 'Pneu',
@@ -625,41 +671,41 @@ async function importSpreadsheet(file) {
           load: '',
           app: '',
           price: price,
-          stock: Number.isFinite(stock) ? stock : 0,
-          promo: false,
-          image: ''
+          stock: stock,
+          promo: existing ? !!existing.promo : false,
+          image: existing ? (existing.image || '') : ''
         };
 
-        // Atualiza o item se ele já estiver no catálogo; caso contrário, adiciona.
-        const existing = products.find(p =>
-          (p.categoria || 'Pneu') === 'Pneu' &&
-          String(p.brand || '').toLowerCase() === data.brand.toLowerCase() &&
-          String(p.model || '').toLowerCase() === data.model.toLowerCase() &&
-          String(p.aro || p.size || '').toLowerCase() === data.aro.toLowerCase()
-        );
-
         if (existing) {
-          batch.set(db.collection('produtos').doc(existing.id), data, { merge: true });
+          batch.set(
+            db.collection('produtos').doc(existing.id),
+            data,
+            { merge: true }
+          );
           updated++;
         } else {
           batch.set(db.collection('produtos').doc(), data);
           added++;
         }
-      });
-    });
+      }
+    }
 
     await batch.commit();
 
     alert(
-      `Importação concluída!\n` +
-      `${added} pneu(s) novo(s) adicionado(s)\n` +
-      `${updated} pneu(s) atualizado(s)` +
-      `${skipped > 0 ? `\n${skipped} linha(s) ignorada(s)` : ''}\n\n` +
-      `As abas 13 a 20 foram importadas e "Remold" foi ignorada.`
+      `Importação concluída!\\n\\n` +
+      `${added} pneu(s) novo(s) adicionado(s)\\n` +
+      `${updated} pneu(s) atualizado(s)\\n` +
+      `${skipped} linha(s) ignorada(s)\\n\\n` +
+      `Aros 13 a 20 importados. A aba Remold foi ignorada.`
     );
+
   } catch (e) {
-    console.error(e);
-    alert('Não foi possível importar a planilha. Use o arquivo .xlsx enviado com as colunas Pneu, Valor Venda e Estoque.');
+    console.error('Erro na importação:', e);
+    alert(
+      'Não foi possível importar a planilha.\\n\\n' +
+      'Confira se o arquivo possui as colunas: Pneu, Valor Venda e Estoque.'
+    );
   }
 }
 
