@@ -969,8 +969,6 @@ function renderGrid() {
   if (adminMode) html += `
     <button class="new-product-btn" id="newProductBtn">+ Adicionar item</button>
     <button class="import-btn" id="importBtn">📄 Importar planilha</button>
-    <button class="import-btn" id="bulkImagesBtn">🖼️ Colocar imagens em lote</button>
-    <button class="import-btn" id="downloadImageListsBtn">⬇️ Baixar listas de imagens</button>
     <button class="import-btn" id="deleteZeroStockBtn" style="background:#b91c1c;color:#fff;border-color:#b91c1c;">🗑️ Excluir sem estoque</button>
   `;
   html += `</div>`;
@@ -1248,29 +1246,6 @@ function downloadCsv(filename, rows) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-function downloadImageLists() {
-  const categories = [
-    { key: 'Pneu', name: 'pneus-carro' },
-    { key: 'Pneu de moto', name: 'pneus-moto' },
-    { key: 'Acessórios', name: 'acessorios' }
-  ];
-
-  categories.forEach((cat, index) => {
-    const list = products.filter(p => (p.categoria || 'Pneu') === cat.key && Number(p.stock || 0) > 0);
-    const rows = [['Categoria','Marca','Modelo','Medida','Estoque','Nome sugerido da imagem']];
-    list.forEach(p => {
-      const base = normalizeFileName([p.brand, p.model, p.size].filter(Boolean).join(' '));
-      rows.push([cat.key, p.brand || '', p.model || '', p.size || '', p.stock || 0, base + '.jpg']);
-    });
-    downloadCsv('lista-imagens-' + cat.name + '.csv', rows);
-    if (index < categories.length - 1) setTimeout(() => {}, 250);
-  });
-
-  alert('Foram baixadas 3 listas: pneus de carro, pneus de moto e acessórios. Elas usam somente os itens com estoque disponível no catálogo.');
-}
-
-document.getElementById('downloadImageListsBtn')?.addEventListener('click', downloadImageLists);
-
 function normalizeCategoryValue(value) {
   return String(value || '')
     .trim()
@@ -1312,7 +1287,7 @@ async function deleteZeroStockByCategory() {
   }
 }
 
-document.getElementById('deleteZeroStockBtn')?.addEventListener('click', deleteZeroStockByCategory);
+document.addEventListener('click', (e) => { if (e.target && e.target.id === 'deleteZeroStockBtn') deleteZeroStockByCategory(); });
 
 bulkImagesInput.addEventListener('change', async () => {
   const files = [...bulkImagesInput.files].filter(f => f.type.startsWith('image/'));
