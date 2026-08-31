@@ -986,7 +986,7 @@ function renderGrid() {
   if (adminMode) html += `
     <button class="new-product-btn" id="newProductBtn">+ Adicionar item</button>
     <button class="import-btn" id="importBtn">📄 Importar planilha</button>
-    <button class="import-btn" id="deleteZeroStockBtn" style="background:#b91c1c;color:#fff;border-color:#b91c1c;">🗑️ Excluir sem estoque</button>
+    <button class="import-btn" id="deleteZeroStockBtn" style="background:#b91c1c;color:#fff;border-color:#b91c1c;">🗑️ Excluir estoque zerado</button>
   `;
   html += `</div>`;
 
@@ -1271,25 +1271,35 @@ function normalizeCategoryValue(value) {
 }
 
 async function deleteZeroStockByCategory() {
-  const target = normalizeCategoryValue(categoryFilter);
-  const label = categoryFilter === 'Pneu' ? 'pneus de carro' : categoryFilter === 'Pneu de moto' ? 'pneus de moto' : 'acessórios';
-
-  // Usa os produtos já sincronizados, mas aceita pequenas diferenças de acentuação/espaços na categoria.
+  // Exclui de uma vez todos os produtos sem estoque, independentemente da categoria.
+  // Estoque 0, negativo, vazio ou inválido é considerado sem estoque.
   const zeroStock = products.filter(p => {
-    const cat = normalizeCategoryValue(p.categoria || 'Pneu');
-    const stock = Number(String(p.stock ?? 0).replace(',', '.')) || 0;
-    return cat === target && stock <= 0;
+    const raw = String(p.stock ?? '').trim().replace(',', '.');
+    const stock = raw === '' ? 0 : Number(raw);
+    return !Number.isFinite(stock) || stock <= 0;
   });
 
   if (!zeroStock.length) {
-    alert(`Não encontrei ${label} sem estoque para excluir.`);
+    alert('Não encontrei produtos com estoque zerado para excluir.');
     return;
   }
 
-  if (!confirm(`Excluir ${zeroStock.length} ${label} sem estoque?\n\nEsta ação não pode ser desfeita.`)) return;
+  const counts = zeroStock.reduce((acc, p) => {
+    const cat = normalizeCategoryValue(p.categoria || 'Pneu');
+    const label = cat === 'pneu' ? 'carro' : cat === 'pneu de moto' ? 'moto' : 'acessórios';
+    acc[label] = (acc[label] || 0) + 1;
+    return acc;
+  }, {});
+
+  const resumo = [
+    counts.carro ? `${counts.carro} de carro` : '',
+    counts.moto ? `${counts.moto} de moto` : '',
+    counts['acessórios'] ? `${counts['acessórios']} acessórios` : ''
+  ].filter(Boolean).join(', ');
+
+  if (!confirm(`Excluir TODOS os ${zeroStock.length} produtos sem estoque?\n\n${resumo}.\n\nEsta ação não pode ser desfeita.`)) return;
 
   try {
-    // Firestore aceita no máximo 500 operações por batch.
     for (let i = 0; i < zeroStock.length; i += 450) {
       const batch = db.batch();
       zeroStock.slice(i, i + 450).forEach(p => {
@@ -1297,10 +1307,13 @@ async function deleteZeroStockByCategory() {
       });
       await batch.commit();
     }
-    alert(`${zeroStock.length} ${label} sem estoque foram excluídos com sucesso.`);
+
+    products = products.filter(p => !zeroStock.some(z => z.id === p.id));
+    render();
+    alert(`${zeroStock.length} produtos sem estoque foram excluídos com sucesso.`);
   } catch (e) {
-    console.error('Erro ao excluir itens sem estoque:', e);
-    alert('Não foi possível excluir os itens sem estoque. Verifique sua conexão e as permissões do Firebase.');
+    console.error('Erro ao excluir produtos sem estoque:', e);
+    alert('Não foi possível excluir os produtos sem estoque. Verifique sua conexão e as permissões do Firebase.');
   }
 }
 
