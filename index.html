@@ -493,7 +493,8 @@ async function initProducts() {
     const snap = await db.collection('produtos').get();
     if (snap.empty) {
       // Primeira vez: semeia o banco com o catálogo inicial
-      const batch = db.batch();
+      let batch = db.batch();
+    let batchWrites = 0;
       SEED_PRODUCTS.forEach(p => {
         const { id, ...data } = p;
         const ref = db.collection('produtos').doc();
@@ -547,69 +548,48 @@ function parseBool(v) {
 
 async function importSpreadsheet(file) {
   try {
-    if (!file || !/\.xlsx?$/i.test(file.name)) {
-      alert('Selecione o arquivo Excel (.xlsx ou .xls).');
-      return;
-    }
-
     const buffer = await file.arrayBuffer();
     const workbook = XLSX.read(buffer, { type: 'array' });
 
-    // Importa SOMENTE os aros 13 a 20. A aba Remold não entra.
-    const sheetNames = workbook.SheetNames.filter(name => {
-      const aro = String(name).trim();
-      return ['13','14','15','16','17','18','19','20'].includes(aro);
-    });
+    // Importa somente os aros. Remold fica de fora.
+    const sheetNames = workbook.SheetNames.filter(name =>
+      ['13','14','15','16','17','18','19','20'].includes(String(name).trim())
+    );
 
     if (!sheetNames.length) {
-      alert('Não encontrei as abas de aros 13 a 20 na planilha.');
+      alert('Não encontrei as abas 13 a 20 na planilha.');
       return;
     }
 
     let added = 0, updated = 0, skipped = 0;
-    const batch = db.batch();
+    let batch = db.batch();
+    let batchWrites = 0;
 
-    const normalizeName = value => String(value ?? '')
+    const normalize = value => String(value ?? '')
       .replace(/\s+/g, ' ')
       .trim()
       .toLowerCase()
       .normalize('NFD')
       .replace(/[\u0300-\u036f]/g, '');
 
-    function parseTireName(rawName, sheetName) {
-      const full = String(rawName ?? '').replace(/\s+/g, ' ').trim();
-      if (!full) return null;
-
-      let clean = full.replace(/^PNEU\s+/i, '').trim();
-      const parts = clean.split(' ').filter(Boolean);
-      if (!parts.length) return null;
-
-      let brand = parts.shift();
-      if (brand.toUpperCase() === 'IMP' && parts.length) brand = parts.shift();
-
-      const model = parts.join(' ').trim() || clean;
-
-      const sizeMatch =
-        clean.match(/\b\d{3}\s*[\/ ]\s*\d{2}\s*(?:ZR|R)\s*\d{2}\b/i) ||
-        clean.match(/\b\d{3}\s*-\s*\d+\b/i);
-
-      const size = sizeMatch
-        ? sizeMatch[0].replace(/\s+/g, ' ').trim()
-        : `R${sheetName}`;
-
-      return {
-        brand,
-        model,
-        size,
-        aro: String(sheetName).trim()
-      };
+    async function saveBatchIfNeeded(force = false) {
+      if (batchWrites >= 400 || (force && batchWrites > 0)) {
+        await batch.commit();
+        batch = db.batch();
+        batchWrites = 0;
+      }
     }
 
     for (const sheetName of sheetNames) {
       const sheet = workbook.Sheets[sheetName];
 
-      // Lê a planilha usando a primeira linha de cada tabela como cabeçalho.
-      const rows = XLSX.utils.sheet_to_json(sheet, { defval: '', raw: true });
+      // Na sua planilha, a linha 1 tem o número do aro e a linha 2 tem:
+      // Pneu | Valor Venda | Estoque
+      const rows = XLSX.utils.sheet_to_json(sheet, {
+        range: 1,
+        defval: '',
+        raw: true
+      });
 
       for (const row of rows) {
         const map = {};
@@ -617,95 +597,80 @@ async function importSpreadsheet(file) {
           map[normalizeHeader(key)] = row[key];
         });
 
-        const tireName = String(map['pneu'] ?? '').trim();
-        const priceRaw = map['valor venda'];
-        const stockRaw = map['estoque'];
+        const pneu = String(map['pneu'] ?? '').replace(/\s+/g, ' ').trim();
+        const estoqueRaw = map['estoque'];
+        const valorRaw = map['valor venda'];
 
-        // Ignora linhas de totais/linhas vazias.
-        if (!tireName) {
+        if (!pneu) {
           skipped++;
           continue;
         }
 
-        const price = typeof priceRaw === 'number'
-          ? priceRaw
-          : Number(String(priceRaw ?? '').replace(/\./g, '').replace(',', '.'));
+        const estoque = typeof estoqueRaw === 'number'
+          ? Math.trunc(estoqueRaw)
+          : (parseInt(String(estoqueRaw ?? '').replace(/[^\d-]/g, ''), 10) || 0);
 
-        const stock = typeof stockRaw === 'number'
-          ? Math.trunc(stockRaw)
-          : parseInt(String(stockRaw ?? '').replace(/[^\d-]/g, ''), 10);
+        const valor = typeof valorRaw === 'number'
+          ? valorRaw
+          : Number(String(valorRaw ?? '').replace(/\./g, '').replace(',', '.')) || 0;
 
-        if (!Number.isFinite(price) || price <= 0 || !Number.isFinite(stock)) {
-          skipped++;
-          continue;
-        }
+        // Simplificado: usa o texto inteiro da coluna Pneu como "medida/modelo".
+        // Depois você pode editar marca, modelo e outras informações no administrador.
+        const sizeMatch =
+          pneu.match(/\b\d{3}\s*[\/ ]\s*\d{2}\s*(?:ZR|R)\s*\d{2}\b/i) ||
+          pneu.match(/\b\d{3}\s*-\s*\d+\b/i) ||
+          pneu.match(/\b\d{2,3}\s*[xX]\s*\d+(?:\.\d+)?\b/i);
 
-        const parsed = parseTireName(tireName, sheetName);
-        if (!parsed) {
-          skipped++;
-          continue;
-        }
+        const medida = sizeMatch
+          ? sizeMatch[0].replace(/\s+/g, ' ').trim()
+          : `Aro ${sheetName}`;
 
-        const importedName = normalizeName(tireName.replace(/^PNEU\s+/i, ''));
-        const importedAro = String(sheetName).trim();
-
-        // Primeiro tenta encontrar pelo nome completo + aro.
-        // Assim a importação atualiza o estoque do pneu existente em vez de duplicá-lo.
-        const existing = products.find(p => {
-          const currentName = normalizeName(
-            `${p.brand || ''} ${p.model || ''}`
-          );
-          const currentAro = String(
-            p.aro || (String(p.size || '').match(/R(\d{2})/i)?.[1] || '')
-          ).trim();
-
-          return currentName === importedName && currentAro === importedAro;
-        });
+        const key = normalize(pneu);
+        const existing = products.find(p =>
+          normalize(`${p.brand || ''} ${p.model || ''}`) === key
+        );
 
         const data = {
           categoria: 'Pneu',
-          brand: parsed.brand,
-          model: parsed.model,
-          size: parsed.size,
-          aro: parsed.aro,
+          brand: '',
+          model: pneu,
+          size: medida,
+          aro: String(sheetName),
           load: '',
           app: '',
-          price: price,
-          stock: stock,
+          price: valor,
+          stock: estoque,
           promo: existing ? !!existing.promo : false,
           image: existing ? (existing.image || '') : ''
         };
 
         if (existing) {
-          batch.set(
-            db.collection('produtos').doc(existing.id),
-            data,
-            { merge: true }
-          );
+          batch.set(db.collection('produtos').doc(existing.id), data, { merge: true });
           updated++;
         } else {
           batch.set(db.collection('produtos').doc(), data);
           added++;
         }
+
+        batchWrites++;
+        await saveBatchIfNeeded();
       }
     }
 
-    await batch.commit();
+    await saveBatchIfNeeded(true);
 
     alert(
-      `Importação concluída!\\n\\n` +
-      `${added} pneu(s) novo(s) adicionado(s)\\n` +
-      `${updated} pneu(s) atualizado(s)\\n` +
-      `${skipped} linha(s) ignorada(s)\\n\\n` +
-      `Aros 13 a 20 importados. A aba Remold foi ignorada.`
+      `Importação concluída!\n\n` +
+      `${added} pneu(s) adicionado(s)\n` +
+      `${updated} pneu(s) atualizado(s)\n` +
+      `${skipped} linha(s) vazia(s) ignorada(s)\n\n` +
+      `Foi usado o nome da coluna Pneu e o número da coluna Estoque. ` +
+      `Você pode editar os outros dados depois.`
     );
 
   } catch (e) {
-    console.error('Erro na importação:', e);
-    alert(
-      'Não foi possível importar a planilha.\\n\\n' +
-      'Confira se o arquivo possui as colunas: Pneu, Valor Venda e Estoque.'
-    );
+    console.error('Erro ao importar:', e);
+    alert('Erro ao importar a planilha. Veja o console ou tente novamente.');
   }
 }
 
