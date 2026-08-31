@@ -556,10 +556,6 @@ async function importSpreadsheet(file) {
     let sheetNames = [];
     let importedCategory = categoryFilter;
 
-    // Cada categoria usa sua própria planilha:
-    // - Pneus de carro: abas 13 a 20; Remold não entra.
-    // - Pneus de moto: todas as abas da planilha de moto.
-    // - Acessórios: todas as abas da planilha de acessórios.
     if (categoryFilter === 'Pneu') {
       sheetNames = workbook.SheetNames.filter(name =>
         ['13','14','15','16','17','18','19','20'].includes(String(name).trim())
@@ -593,6 +589,14 @@ async function importSpreadsheet(file) {
       .normalize('NFD')
       .replace(/[\u0300-\u036f]/g, '');
 
+    const cleanSheetBrand = (sheetName, prefix) => {
+      let s = String(sheetName || '').trim();
+      if (prefix && s.toLowerCase().startsWith(prefix.toLowerCase())) {
+        s = s.slice(prefix.length).trim();
+      }
+      return s.replace(/^P[.\s-]*/i, '').replace(/^C[.\s-]*/i, '').trim();
+    };
+
     async function saveBatchIfNeeded(force = false) {
       if (batchWrites >= 400 || (force && batchWrites > 0)) {
         await batch.commit();
@@ -604,9 +608,6 @@ async function importSpreadsheet(file) {
     for (const sheetName of sheetNames) {
       const sheet = workbook.Sheets[sheetName];
 
-      // Nas planilhas enviadas:
-      // linha 1 = título/identificação da aba
-      // linha 2 = cabeçalhos (Cod, Pneu, Valor Venda, Estoque...)
       const rows = XLSX.utils.sheet_to_json(sheet, {
         range: 1,
         defval: '',
@@ -619,15 +620,21 @@ async function importSpreadsheet(file) {
           map[normalizeHeader(key)] = row[key];
         });
 
-        // A coluna se chama "Pneu" nas planilhas, mesmo nos acessórios.
         const nome = String(map['pneu'] ?? '').replace(/\s+/g, ' ').trim();
-        const estoqueRaw = map['estoque'];
-        const valorRaw = map['valor venda'];
+
+        // Acessórios: somente câmaras.
+        if (categoryFilter === 'Acessórios' && !/CAMARA/i.test(nome)) {
+          skipped++;
+          continue;
+        }
 
         if (!nome) {
           skipped++;
           continue;
         }
+
+        const estoqueRaw = map['estoque'];
+        const valorRaw = map['valor venda'];
 
         const estoque = typeof estoqueRaw === 'number'
           ? Math.trunc(estoqueRaw)
@@ -637,38 +644,64 @@ async function importSpreadsheet(file) {
           ? valorRaw
           : Number(String(valorRaw ?? '').replace(/\./g, '').replace(',', '.')) || 0;
 
-        // Para pneus, tenta extrair a medida. Para acessórios, usa o nome como modelo.
         let medida = '';
-        if (categoryFilter === 'Pneu' || categoryFilter === 'Pneu de moto') {
-          const sizeMatch =
-            nome.match(/\b\d{3}\s*[\/ ]\s*\d{2}\s*(?:ZR|R)\s*\d{2}\b/i) ||
-            nome.match(/\b\d{2,3}\s*[\/-]\s*\d{2,3}\b/i) ||
-            nome.match(/\b\d{3}\s*-\s*\d+\b/i) ||
-            nome.match(/\b\d{2,3}\s*[xX]\s*\d+(?:\.\d+)?\b/i);
-
-          medida = sizeMatch
-            ? sizeMatch[0].replace(/\s+/g, ' ').trim()
-            : (categoryFilter === 'Pneu' ? `Aro ${sheetName}` : '');
-        } else {
-          // Para acessórios, deixa a medida vazia para você editar depois.
-          medida = '';
-        }
-
-        // Tenta separar marca do restante somente nos pneus.
+        let aro = '';
         let brand = '';
         let model = nome;
-        if (categoryFilter === 'Pneu' || categoryFilter === 'Pneu de moto') {
+
+        if (categoryFilter === 'Pneu') {
+          // Carros: o aro vem da aba.
+          const sizeMatch =
+            nome.match(/\b\d{3}\s*[\/ ]\s*\d{2}\s*(?:ZR|R)\s*\d{2}\b/i) ||
+            nome.match(/\b\d{2,3}\s*[\/-]\s*\d{2,3}\s*(?:R|ZR)?\s*\d{2}\b/i) ||
+            nome.match(/\b\d{3}\s*-\s*\d+\b/i);
+
+          medida = sizeMatch ? sizeMatch[0].replace(/\s+/g, ' ').trim() : `Aro ${sheetName}`;
+          aro = String(sheetName).trim();
+
           const parts = nome.split(' ').filter(Boolean);
-          if (parts.length > 1) {
-            brand = parts[0];
-            model = parts.slice(1).join(' ');
+          brand = parts[0] || '';
+          model = parts.slice(1).join(' ') || nome;
+
+        } else if (categoryFilter === 'Pneu de moto') {
+          // Moto: a marca é o nome da aba (P. Michelin -> Michelin).
+          brand = cleanSheetBrand(sheetName);
+
+          // Medidas típicas de moto: 80/100-14, 90/80/16, 2.75-18 etc.
+          const sizeMatch =
+            nome.match(/\b\d{2,3}\s*\/\s*\d{2,3}\s*(?:[-\/]\s*)?(?:\d{2})\b/i) ||
+            nome.match(/\b\d{1,3}(?:\.\d+)?\s*[-\/]\s*\d{2}\b/i) ||
+            nome.match(/\b\d{2,3}\s*\/\s*\d{2,3}\s*-\s*\d{2}\b/i);
+
+          medida = sizeMatch ? sizeMatch[0].replace(/\s+/g, ' ').trim() : '';
+
+          // Pega o aro como o último número de 2 dígitos da medida.
+          if (medida) {
+            const aroMatch = medida.match(/(?:\/|-)\s*(\d{2})\s*$/);
+            if (aroMatch) aro = aroMatch[1];
           }
+
+          // Se não encontrou na medida, tenta qualquer /14, /16, -18 etc.
+          if (!aro) {
+            const aroMatch = nome.match(/(?:\/|-)\s*(\d{2})(?:\b|$)/);
+            if (aroMatch) aro = aroMatch[1];
+          }
+
+          model = nome;
+
+        } else {
+          // Acessórios: marca vem da aba (C. Qbom -> Qbom; Maggion -> Maggion).
+          brand = cleanSheetBrand(sheetName);
+          model = nome;
         }
 
         const key = normalize(nome);
         const existing = products.find(p => {
           const existingName = normalize(`${p.brand || ''} ${p.model || ''}`);
-          return existingName === key && (p.categoria || 'Pneu') === importedCategory;
+          return (
+            existingName === key ||
+            normalize(p.model || '') === key
+          ) && (p.categoria || 'Pneu') === importedCategory;
         });
 
         const data = {
@@ -676,7 +709,7 @@ async function importSpreadsheet(file) {
           brand: existing ? (existing.brand || brand) : brand,
           model: existing ? (existing.model || model) : model,
           size: existing ? (existing.size || medida) : medida,
-          aro: (categoryFilter === 'Pneu') ? String(sheetName) : (existing ? (existing.aro || '') : ''),
+          aro: existing ? (existing.aro || aro) : aro,
           load: existing ? (existing.load || '') : '',
           app: existing ? (existing.app || '') : '',
           price: valor,
@@ -706,17 +739,16 @@ async function importSpreadsheet(file) {
       'acessório(s)';
 
     alert(
-      `Importação concluída!\\n\\n` +
-      `${added} ${label} adicionado(s)\\n` +
-      `${updated} ${label} atualizado(s)\\n` +
-      `${skipped} linha(s) vazia(s) ignorada(s).\\n\\n` +
-      `Os dados foram enviados para o estoque do site.`
+      `Importação concluída!\n\n` +
+      `${added} ${label} adicionado(s)\n` +
+      `${updated} ${label} atualizado(s)\n` +
+      `${skipped} linha(s) ignorada(s).`
     );
 
   } catch (e) {
     console.error('Erro ao importar:', e);
     alert(
-      'Erro ao importar a planilha.\\n\\n' +
+      'Erro ao importar a planilha.\n\n' +
       'Confira se ela possui as colunas Pneu, Valor Venda e Estoque.'
     );
   }
@@ -730,7 +762,13 @@ document.getElementById('importFileInput').addEventListener('change', (e) => {
 
 
 function getCategoryProducts() { return products.filter(p => (p.categoria || "Pneu") === categoryFilter); }
-function getBrands() { return [...new Set(getCategoryProducts().map(p => p.brand))]; }
+function getBrands() {
+  return [...new Set(
+    getCategoryProducts()
+      .map(p => String(p.brand || '').trim())
+      .filter(b => b && !/^pneus\s*tire$/i.test(b))
+  )];
+}
 function getApps() { return [...new Set(getCategoryProducts().map(p => p.app).filter(Boolean))]; }
 
 function getAros() {
@@ -740,7 +778,11 @@ function getAros() {
 
 function getFiltered() {
   return getCategoryProducts().filter(p => {
-    const productAro = String(p.aro || (String(p.size || '').match(/R(\d{2})/i)?.[1] || '')).trim();
+    const productAro = String(
+      p.aro ||
+      (String(p.size || '').match(/(?:\/|-)\s*(\d{2})\s*$/i)?.[1] || '') ||
+      (String(p.size || '').match(/R(\d{2})/i)?.[1] || '')
+    ).trim();
     const matchAro = aroFilter === "Todos" || productAro === aroFilter;
     const matchBrand = brandFilter === "Todas" || p.brand === brandFilter;
     const matchApp = appFilter === "Todas" || p.app === appFilter;
