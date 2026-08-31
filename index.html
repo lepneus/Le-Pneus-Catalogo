@@ -286,6 +286,32 @@ button, input { font-family: inherit; }
 }
 .whatsapp-btn:hover { filter: brightness(1.06); }
 .checkout-note { font-size: 11px; color: var(--chalk-dim); text-align: center; margin-top: 10px; }
+
+<style>
+.bulk-images-modal { max-width: 760px; width: calc(100% - 30px); }
+.bulk-images-help { color: var(--muted, #aaa); font-size: 13px; line-height: 1.5; margin: 0 0 14px; }
+.bulk-images-list { max-height: 380px; overflow:auto; border:1px solid var(--line); border-radius:8px; }
+.bulk-image-row { display:grid; grid-template-columns:54px 1fr 1fr; gap:12px; align-items:center; padding:9px 12px; border-bottom:1px solid var(--line); }
+.bulk-image-row:last-child { border-bottom:0; }
+.bulk-image-row img { width:48px; height:48px; object-fit:contain; border-radius:6px; background:#111; }
+.bulk-image-name { font-size:13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.bulk-image-match { font-size:12px; color:#ffd21c; }
+.bulk-image-unmatched { color:#999; }
+.bulk-images-summary { margin-top:12px; font-size:13px; }
+@media (max-width: 700px) {
+  .bulk-image-row { grid-template-columns:54px 1fr; }
+  .bulk-image-match { grid-column:2; }
+}
+</style>
+</style>
+
+<style>
+.category-image-admin { max-width: 1180px; margin: 10px auto 0; padding: 0 20px; }
+.category-image-admin-inner { display:flex; align-items:center; gap:10px; flex-wrap:wrap; padding:10px 12px; border:1px solid var(--line); border-radius:8px; background:var(--asphalt); }
+.category-image-admin-inner span { font-size:12px; color:var(--muted); }
+.category-image-admin button { border:1px solid var(--line); background:#151515; color:var(--chalk); border-radius:5px; padding:8px 11px; cursor:pointer; font-size:12px; }
+.category-image-admin button:hover { border-color:var(--safety); }
+.category-image-admin .remove-category-image { color:#ff7b7b; }
 </style>
 </head>
 <body>
@@ -324,6 +350,7 @@ button, input { font-family: inherit; }
   <button class="category-tab" data-category="Pneu de moto">Pneus de moto</button>
   <button class="category-tab" data-category="Acessórios">Acessórios</button>
 </div>
+<div class="category-image-admin" id="categoryImageAdmin" style="display:none;"></div>
 
 <div class="shop-body">
   <aside class="filters">
@@ -346,6 +373,29 @@ button, input { font-family: inherit; }
 <!-- Overlay -->
 <div class="overlay" id="overlay"></div>
 <input type="file" id="importFileInput" accept=".xlsx,.xls,.csv" style="display:none;">
+<input type="file" id="bulkImagesInput" accept="image/*" multiple style="display:none;">
+<input type="file" id="categoryImageInput" accept="image/*" style="display:none;">
+
+
+<!-- Modal: imagens em lote -->
+<div class="modal bulk-images-modal" id="bulkImagesModal">
+  <div class="modal-head">
+    <h2>Colocar imagens em lote</h2>
+    <button class="close-btn" id="closeBulkImagesModal">✕</button>
+  </div>
+  <div class="product-form">
+    <p class="bulk-images-help">
+      Selecione várias imagens de uma vez. O sistema tenta identificar cada produto pelo
+      nome do arquivo (marca, modelo ou medida). Assim você não precisa editar produto por produto.
+    </p>
+    <div class="bulk-images-list" id="bulkImagesList"></div>
+    <div class="bulk-images-summary" id="bulkImagesSummary"></div>
+    <div class="form-actions">
+      <button type="button" class="cancel-btn" id="cancelBulkImagesBtn">Cancelar</button>
+      <button type="button" class="save-btn" id="applyBulkImagesBtn">Aplicar imagens</button>
+    </div>
+  </div>
+</div>
 
 <!-- Modal: senha admin -->
 <div class="modal password-modal" id="passwordModal">
@@ -473,6 +523,7 @@ const SEED_PRODUCTS = [
 let products = [];
 let nextId = 1000;
 let adminMode = false;
+let categoryImages = { Pneu: '', 'Pneu de moto': '', 'Acessórios': '' };
 let categoryFilter = "Pneu";
 let brandFilter = "Todas";
 let appFilter = "Todas";
@@ -791,6 +842,100 @@ function getFiltered() {
   });
 }
 
+
+function renderCategoryImageAdmin() {
+  const wrap = document.getElementById('categoryImageAdmin');
+  if (!wrap) return;
+  if (!adminMode) { wrap.style.display = 'none'; wrap.innerHTML = ''; return; }
+
+  const label = categoryFilter === 'Pneu' ? 'Pneus de carro' : categoryFilter === 'Pneu de moto' ? 'Pneus de moto' : 'Acessórios';
+  const hasImage = !!categoryImages[categoryFilter];
+  wrap.style.display = 'block';
+  wrap.innerHTML = `
+    <div class="category-image-admin-inner">
+      <span>Imagem para todos de <strong>${label}</strong>:</span>
+      <button id="chooseCategoryImageBtn">🖼️ Escolher imagem</button>
+      ${hasImage ? '<button class="remove-category-image" id="removeCategoryImageBtn">✕ Remover imagem da categoria</button>' : ''}
+      <span>${hasImage ? 'Imagem definida — será usada nos produtos desta categoria.' : 'Nenhuma imagem definida.'}</span>
+    </div>`;
+
+  document.getElementById('chooseCategoryImageBtn').addEventListener('click', () => {
+    document.getElementById('categoryImageInput').value = '';
+    document.getElementById('categoryImageInput').click();
+  });
+  document.getElementById('removeCategoryImageBtn')?.addEventListener('click', removeCategoryImage);
+}
+
+function compressCategoryImage(file, maxSize = 1000, quality = 0.82) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const reader = new FileReader();
+    reader.onload = () => { img.src = reader.result; };
+    reader.onerror = reject;
+    img.onload = () => {
+      const scale = Math.min(1, maxSize / Math.max(img.width, img.height));
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.max(1, Math.round(img.width * scale));
+      canvas.height = Math.max(1, Math.round(img.height * scale));
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      resolve(canvas.toDataURL('image/jpeg', quality));
+    };
+    img.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+async function loadCategoryImages() {
+  try {
+    const snap = await db.collection('configuracoes').doc('imagensCategorias').get();
+    if (snap.exists) {
+      categoryImages = {
+        ...categoryImages,
+        ...(snap.data() || {})
+      };
+    }
+    render();
+  } catch (e) {
+    console.warn('Não foi possível carregar as imagens das categorias:', e);
+  }
+}
+
+async function saveCategoryImage(category, dataUrl) {
+  try {
+    await db.collection('configuracoes').doc('imagensCategorias').set({ [category]: dataUrl }, { merge: true });
+    categoryImages[category] = dataUrl;
+    render();
+    alert('Imagem aplicada a todos os produtos desta categoria.');
+  } catch (e) {
+    console.error(e);
+    alert('Não foi possível salvar a imagem. Verifique sua conexão e as permissões do Firebase.');
+  }
+}
+
+async function removeCategoryImage() {
+  if (!confirm('Remover a imagem desta categoria? Os produtos voltarão a usar suas imagens individuais.')) return;
+  try {
+    await db.collection('configuracoes').doc('imagensCategorias').set({ [categoryFilter]: '' }, { merge: true });
+    categoryImages[categoryFilter] = '';
+    render();
+  } catch (e) {
+    alert('Não foi possível remover a imagem da categoria.');
+  }
+}
+
+document.getElementById('categoryImageInput').addEventListener('change', async (e) => {
+  const file = e.target.files?.[0];
+  if (!file) return;
+  try {
+    const dataUrl = await compressCategoryImage(file);
+    await saveCategoryImage(categoryFilter, dataUrl);
+  } catch (err) {
+    console.error(err);
+    alert('Não foi possível preparar essa imagem.');
+  }
+});
+
 function renderFilters() {
   const aroWrap = document.getElementById('aroFilters');
   const brandWrap = document.getElementById('brandFilters');
@@ -821,7 +966,11 @@ function renderGrid() {
   const filtered = getFiltered();
   const itemLabel = categoryFilter === "Pneu" ? "pneu(s) de carro" : categoryFilter === "Pneu de moto" ? "pneu(s) de moto" : "acessório(s)";
   let html = `<div class="results-count"><span>${filtered.length} ${itemLabel} encontrado(s)</span>`;
-  if (adminMode) html += `<button class="new-product-btn" id="newProductBtn">+ Adicionar item</button><button class="import-btn" id="importBtn">📄 Importar planilha</button>`;
+  if (adminMode) html += `
+    <button class="new-product-btn" id="newProductBtn">+ Adicionar item</button>
+    <button class="import-btn" id="importBtn">📄 Importar planilha</button>
+    <button class="import-btn" id="bulkImagesBtn">🖼️ Colocar imagens em lote</button>
+  `;
   html += `</div>`;
 
   if (filtered.length === 0) {
@@ -829,8 +978,9 @@ function renderGrid() {
   }
 
   filtered.forEach(p => {
-    const visual = p.image
-      ? `<img src="${p.image}" alt="${p.brand} ${p.model}" class="card-photo" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"><div class="tire-ring" style="display:none;"><div class="tire-ring-inner"></div></div>`
+    const displayImage = categoryImages[p.categoria || 'Pneu'] || p.image || '';
+    const visual = displayImage
+      ? `<img src="${displayImage}" alt="${p.brand} ${p.model}" class="card-photo" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"><div class="tire-ring" style="display:none;"><div class="tire-ring-inner"></div></div>`
       : `<div class="tire-ring"><div class="tire-ring-inner"></div></div>`;
     html += `
     <div class="product-card">
@@ -935,6 +1085,7 @@ function render() {
   renderFilters();
   renderGrid();
   renderOrdersPanel();
+  renderCategoryImageAdmin();
 }
 
 /* ---- Admin toggle / senha ---- */
@@ -975,6 +1126,158 @@ document.getElementById('passwordForm').addEventListener('submit', (e) => {
     passwordError.style.display = 'block';
   }
 });
+
+
+/* ---- Imagens em lote ---- */
+const bulkImagesModal = document.getElementById('bulkImagesModal');
+const bulkImagesInput = document.getElementById('bulkImagesInput');
+const bulkImagesList = document.getElementById('bulkImagesList');
+const bulkImagesSummary = document.getElementById('bulkImagesSummary');
+let bulkImageItems = [];
+
+function normalizeBulkText(value) {
+  return String(value || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\.(jpe?g|png|webp|gif|bmp|avif)$/i, '')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function getBulkMatch(product, fileName) {
+  const file = normalizeBulkText(fileName);
+  const candidates = [
+    normalizeBulkText(`${product.brand || ''} ${product.model || ''}`),
+    normalizeBulkText(product.model || ''),
+    normalizeBulkText(product.size || '')
+  ].filter(Boolean);
+
+  let best = null;
+  let bestScore = 0;
+
+  candidates.forEach(candidate => {
+    if (!candidate) return;
+    if (file === candidate) bestScore = Math.max(bestScore, 100);
+    else if (file.includes(candidate)) bestScore = Math.max(bestScore, 90);
+    else if (candidate.includes(file) && file.length >= 5) bestScore = Math.max(bestScore, 80);
+    else {
+      const tokens = candidate.split(' ').filter(t => t.length >= 3);
+      const hits = tokens.filter(t => file.includes(t)).length;
+      const score = tokens.length ? (hits / tokens.length) * 70 : 0;
+      bestScore = Math.max(bestScore, score);
+    }
+  });
+
+  // Também considera o nome do arquivo contendo o ID do produto.
+  if (file === normalizeBulkText(String(product.id))) bestScore = 110;
+
+  if (bestScore < 65) return null;
+  return { product, score: bestScore };
+}
+
+function renderBulkImagesList() {
+  const matches = [];
+  const usedProducts = new Set();
+
+  bulkImageItems.forEach(item => {
+    const possible = products
+      .map(p => getBulkMatch(p, item.file.name))
+      .filter(Boolean)
+      .sort((a, b) => b.score - a.score);
+
+    // Evita que duas imagens diferentes sejam automaticamente colocadas no mesmo produto.
+    const chosen = possible.find(x => !usedProducts.has(x.product.id)) || possible[0] || null;
+    if (chosen) usedProducts.add(chosen.product.id);
+
+    item.product = chosen ? chosen.product : null;
+    item.score = chosen ? chosen.score : 0;
+    matches.push(item);
+  });
+
+  bulkImagesList.innerHTML = matches.length
+    ? matches.map((item, index) => `
+        <div class="bulk-image-row">
+          <img src="${item.preview}" alt="">
+          <div class="bulk-image-name" title="${item.file.name}">${item.file.name}</div>
+          <div class="${item.product ? 'bulk-image-match' : 'bulk-image-unmatched'}">
+            ${item.product
+              ? `→ ${item.product.brand || ''} ${item.product.model || ''}`
+              : '→ Nenhum produto identificado automaticamente'}
+          </div>
+        </div>
+      `).join('')
+    : '<div style="padding:20px;color:#999;">Nenhuma imagem selecionada.</div>';
+
+  const ok = matches.filter(x => x.product).length;
+  bulkImagesSummary.textContent = `${matches.length} imagem(ns) selecionada(s) — ${ok} identificada(s) automaticamente.`;
+}
+
+document.getElementById('bulkImagesBtn')?.addEventListener('click', () => {
+  bulkImagesInput.value = '';
+  bulkImagesInput.click();
+});
+
+bulkImagesInput.addEventListener('change', async () => {
+  const files = [...bulkImagesInput.files].filter(f => f.type.startsWith('image/'));
+  bulkImageItems = await Promise.all(files.map(async file => ({
+    file,
+    preview: URL.createObjectURL(file),
+    product: null,
+    score: 0
+  })));
+
+  renderBulkImagesList();
+  showOverlayAnd(bulkImagesModal);
+});
+
+async function applyBulkImages() {
+  const matched = bulkImageItems.filter(x => x.product);
+  if (!matched.length) {
+    alert('Nenhuma imagem foi identificada. Renomeie os arquivos com o nome/modelo do produto e tente novamente.');
+    return;
+  }
+
+  const btn = document.getElementById('applyBulkImagesBtn');
+  btn.disabled = true;
+  btn.textContent = 'Salvando...';
+
+  try {
+    // Data URL permite que as imagens selecionadas sejam usadas imediatamente no catálogo.
+    // O Firestore recebe a imagem junto ao produto, sem precisar editar um por um.
+    for (const item of matched) {
+      const dataUrl = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(item.file);
+      });
+
+      await db.collection('produtos').doc(item.product.id).set(
+        { image: dataUrl },
+        { merge: true }
+      );
+    }
+
+    bulkImageItems.forEach(item => {
+      try { URL.revokeObjectURL(item.preview); } catch (_) {}
+    });
+
+    hideOverlayAnd(bulkImagesModal);
+    alert(`${matched.length} imagem(ns) aplicada(s) com sucesso.`);
+  } catch (e) {
+    console.error('Erro ao aplicar imagens em lote:', e);
+    alert('Não foi possível salvar as imagens. Verifique sua conexão e tente novamente.');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Aplicar imagens';
+  }
+}
+
+document.getElementById('applyBulkImagesBtn').addEventListener('click', applyBulkImages);
+document.getElementById('closeBulkImagesModal').addEventListener('click', () => hideOverlayAnd(bulkImagesModal));
+document.getElementById('cancelBulkImagesBtn').addEventListener('click', () => hideOverlayAnd(bulkImagesModal));
 
 /* ---- Formulário de produto ---- */
 const formModal = document.getElementById('formModal');
@@ -1052,8 +1355,9 @@ function renderDetail() {
   const p = selectedProduct;
   document.getElementById('detailTitle').textContent = `${p.brand} ${p.model}`;
   const visual = document.getElementById('detailVisual');
-  visual.innerHTML = p.image
-    ? `<img src="${p.image}" alt="${p.brand} ${p.model}" class="detail-photo" onerror="this.style.display='none';">${tireStampHtml(p.size, p.load)}`
+  const displayImage = categoryImages[p.categoria || 'Pneu'] || p.image || '';
+  visual.innerHTML = displayImage
+    ? `<img src="${displayImage}" alt="${p.brand} ${p.model}" class="detail-photo" onerror="this.style.display='none';">${tireStampHtml(p.size, p.load)}`
     : `<div class="tire-ring detail-ring"><div class="tire-ring-inner"></div></div>${tireStampHtml(p.size, p.load)}`;
   document.getElementById('detailApp').textContent = p.app || '-';
   document.getElementById('detailPrice').textContent = formatBRL(p.price);
@@ -1118,10 +1422,12 @@ overlay.addEventListener('click', () => {
   hideOverlayAnd(passwordModal);
   hideOverlayAnd(formModal);
   hideOverlayAnd(detailModal);
+  hideOverlayAnd(bulkImagesModal);
 });
 
 /* ---- Init ---- */
 initProducts();
+loadCategoryImages();
 initOrders();
 render();
 </script>
