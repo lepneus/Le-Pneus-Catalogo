@@ -986,7 +986,8 @@ function renderGrid() {
   if (adminMode) html += `
     <button class="new-product-btn" id="newProductBtn">+ Adicionar item</button>
     <button class="import-btn" id="importBtn">📄 Importar planilha</button>
-    <button class="import-btn" id="deleteZeroStockBtn" style="background:#b91c1c;color:#fff;border-color:#b91c1c;">🗑️ Excluir estoque zerado</button>
+    <button class="import-btn" id="deleteZeroStockBtn" style="background:#b91c1c;color:#fff;border-color:#b91c1c;">🗑️ Excluir sem estoque</button>
+    <button class="import-btn" id="deleteAllStockBtn" style="background:#7f1d1d;color:#fff;border-color:#7f1d1d;">⚠️ Excluir todo o estoque</button>
   `;
   html += `</div>`;
 
@@ -1317,7 +1318,31 @@ async function deleteZeroStockByCategory() {
   }
 }
 
-document.addEventListener('click', (e) => { if (e.target && e.target.id === 'deleteZeroStockBtn') deleteZeroStockByCategory(); });
+async function deleteAllStock() {
+  if (!confirm('ATENÇÃO! Isso vai excluir TODOS os produtos do estoque (carro, moto e acessórios).\n\nTem certeza que deseja continuar?')) return;
+  if (!confirm('ÚLTIMA CONFIRMAÇÃO: todos os produtos serão apagados do Firebase e não poderão ser recuperados por este sistema. Continuar?')) return;
+  try {
+    const snap = await db.collection('produtos').get();
+    const docs = snap.docs;
+    if (!docs.length) { alert('O estoque já está vazio.'); return; }
+    for (let i = 0; i < docs.length; i += 450) {
+      const batch = db.batch();
+      docs.slice(i, i + 450).forEach(doc => batch.delete(doc.ref));
+      await batch.commit();
+    }
+    products = [];
+    render();
+    alert(`${docs.length} produtos foram excluídos do estoque.`);
+  } catch (e) {
+    console.error('Erro ao excluir todo o estoque:', e);
+    alert('Não foi possível excluir todo o estoque. Verifique as permissões do Firebase.');
+  }
+}
+
+document.addEventListener('click', (e) => {
+  if (e.target && e.target.id === 'deleteZeroStockBtn') deleteZeroStockByCategory();
+  if (e.target && e.target.id === 'deleteAllStockBtn') deleteAllStock();
+});
 
 bulkImagesInput.addEventListener('change', async () => {
   const files = [...bulkImagesInput.files].filter(f => f.type.startsWith('image/'));
