@@ -971,6 +971,7 @@ function renderGrid() {
     <button class="import-btn" id="importBtn">📄 Importar planilha</button>
     <button class="import-btn" id="bulkImagesBtn">🖼️ Colocar imagens em lote</button>
     <button class="import-btn" id="downloadImageListsBtn">⬇️ Baixar listas de imagens</button>
+    <button class="import-btn danger" id="deleteOutOfStockBtn">🗑️ Excluir pneus sem estoque</button>
   `;
   html += `</div>`;
 
@@ -1015,6 +1016,8 @@ function renderGrid() {
   if (newBtn) newBtn.addEventListener('click', () => openForm(null));
   const importBtn = document.getElementById('importBtn');
   if (importBtn) importBtn.addEventListener('click', () => document.getElementById('importFileInput').click());
+  const deleteOutOfStockBtn = document.getElementById('deleteOutOfStockBtn');
+  if (deleteOutOfStockBtn) deleteOutOfStockBtn.addEventListener('click', deleteOutOfStockProducts);
 }
 
 /* ---- Pedidos pendentes (sincronizados em tempo real) ---- */
@@ -1389,6 +1392,49 @@ productForm.addEventListener('submit', (e) => {
 function deleteProduct(id) {
   if (!confirm('Excluir este pneu do catálogo?')) return;
   deleteProductFromCloud(id);
+}
+
+async function deleteOutOfStockProducts() {
+  if (!adminMode) return;
+
+  const outOfStock = products.filter(p => (p.categoria || 'Pneu') !== 'Acessórios' && Number(p.stock || 0) <= 0);
+  if (!outOfStock.length) {
+    alert('Não há pneus sem estoque para excluir.');
+    return;
+  }
+
+  const confirmed = confirm(
+    `Serão excluídos ${outOfStock.length} pneu(s) sem estoque (estoque 0).\n\n` +
+    'Essa ação não pode ser desfeita. Deseja continuar?'
+  );
+  if (!confirmed) return;
+
+  const btn = document.getElementById('deleteOutOfStockBtn');
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = 'Excluindo...';
+  }
+
+  try {
+    // Firestore permite no máximo 500 operações por batch.
+    for (let i = 0; i < outOfStock.length; i += 450) {
+      const batch = db.batch();
+      outOfStock.slice(i, i + 450).forEach(p => {
+        batch.delete(db.collection('produtos').doc(p.id));
+      });
+      await batch.commit();
+    }
+
+    alert(`${outOfStock.length} pneu(s) sem estoque foram excluídos com sucesso.`);
+  } catch (e) {
+    console.error('Erro ao excluir pneus sem estoque:', e);
+    alert('Não foi possível excluir todos os pneus sem estoque. Verifique sua conexão e as permissões do Firebase.');
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = '🗑️ Excluir pneus sem estoque';
+    }
+  }
 }
 
 /* ---- Detalhe do produto / pedido WhatsApp ---- */
