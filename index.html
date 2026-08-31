@@ -328,6 +328,10 @@ button, input { font-family: inherit; }
 <div class="shop-body">
   <aside class="filters">
     <div class="filter-group">
+      <div class="filter-title">Aro</div>
+      <div id="aroFilters"></div>
+    </div>
+    <div class="filter-group">
       <div class="filter-title">Marca</div>
       <div id="brandFilters"></div>
     </div>
@@ -472,6 +476,7 @@ let adminMode = false;
 let categoryFilter = "Pneu";
 let brandFilter = "Todas";
 let appFilter = "Todas";
+let aroFilter = "Todos";
 let query = "";
 let editingId = null;
 let selectedProduct = null;
@@ -544,61 +549,117 @@ async function importSpreadsheet(file) {
   try {
     const buffer = await file.arrayBuffer();
     const workbook = XLSX.read(buffer, { type: 'array' });
-    const sheet = workbook.Sheets[workbook.SheetNames[0]];
-    const rows = XLSX.utils.sheet_to_json(sheet, { defval: '' });
 
-    if (rows.length === 0) {
-      alert('A planilha está vazia ou não foi possível lê-la.');
+    // Aceita a planilha de estoque enviada: abas 13, 14, 15... 20.
+    // A aba "Remold" é ignorada conforme solicitado.
+    const sheetNames = workbook.SheetNames.filter(name => normalizeHeader(name) !== 'remold');
+
+    if (sheetNames.length === 0) {
+      alert('Nenhuma aba de pneus foi encontrada na planilha.');
       return;
     }
 
     let added = 0, updated = 0, skipped = 0;
     const batch = db.batch();
 
-    rows.forEach(row => {
-      const map = {};
-      Object.keys(row).forEach(key => { map[normalizeHeader(key)] = row[key]; });
+    function parseTireName(rawName, sheetName) {
+      let full = String(rawName || '').replace(/\s+/g, ' ').trim();
+      if (!full) return null;
 
-      const brand = String(map['marca'] || '').trim();
-      const model = String(map['modelo'] || '').trim();
-      const size = String(map['medida'] || '').trim();
-      const price = parseFloat(map['preco']) || 0;
+      // Remove o prefixo "PNEU" usado em várias linhas da planilha.
+      let clean = full.replace(/^PNEU\s+/i, '').trim();
+      let parts = clean.split(' ');
+      let brand = parts.shift() || 'Pneu';
 
-      if (!brand || !model || !size || !price) { skipped++; return; }
-
-      const data = {
-        categoria: (String(map['categoria'] || '').trim() === 'Câmara de ar' || normalizeHeader(map['categoria']) === 'camara de ar') ? 'Câmara de ar' : 'Pneu',
-        brand, model, size,
-        load: String(map['carga'] || '').trim(),
-        app: String(map['aplicacao'] || '').trim(),
-        price,
-        stock: parseInt(map['estoque'], 10) || 0,
-        promo: parseBool(map['oferta']),
-        image: String(map['foto'] || '').trim(),
-      };
-
-      // Tenta encontrar um item já existente (mesma categoria + marca + modelo + medida) para atualizar em vez de duplicar
-      const existing = products.find(p =>
-        (p.categoria || 'Pneu') === data.categoria &&
-        p.brand.toLowerCase() === brand.toLowerCase() &&
-        p.model.toLowerCase() === model.toLowerCase() &&
-        p.size.toLowerCase() === size.toLowerCase()
-      );
-
-      if (existing) {
-        batch.set(db.collection('produtos').doc(existing.id), data, { merge: true });
-        updated++;
-      } else {
-        batch.set(db.collection('produtos').doc(), data);
-        added++;
+      // Em nomes como "PNEU IMP BKT 600-9...", considera BKT como marca.
+      if (brand.toUpperCase() === 'IMP' && parts.length) {
+        brand = parts.shift();
       }
+
+      let model = parts.join(' ').trim() || clean;
+
+      // Tenta encontrar a medida real no nome.
+      const sizeMatch =
+        clean.match(/\b\d{3}\s*[\/ ]\s*\d{2}\s*R\d{2}\b/i) ||
+        clean.match(/\b\d{3}\s*[\/ ]\s*\d{2}R\d{2}\b/i) ||
+        clean.match(/\b\d{3}\s*[\/ ]\s*\d{2}\s*\d{2}\b/i) ||
+        clean.match(/\b\d{3}-\d+\b/i);
+
+      const size = sizeMatch ? sizeMatch[0].replace(/\s+/g, ' ').trim() : `R${sheetName}`;
+      const aro = String(sheetName).trim();
+
+      return { brand, model, size, aro };
+    }
+
+    sheetNames.forEach(sheetName => {
+      const sheet = workbook.Sheets[sheetName];
+      const rows = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+
+      rows.forEach(row => {
+        const map = {};
+        Object.keys(row).forEach(key => { map[normalizeHeader(key)] = row[key]; });
+
+        // Formato da planilha enviada:
+        // Pneu | Valor Venda | Estoque
+        const tireName = String(map['pneu'] || '').trim();
+        const price = Number(map['valor venda']);
+        const stock = parseInt(map['estoque'], 10);
+
+        if (!tireName || !Number.isFinite(price) || price <= 0) {
+          skipped++;
+          return;
+        }
+
+        const parsed = parseTireName(tireName, sheetName);
+        if (!parsed) {
+          skipped++;
+          return;
+        }
+
+        const data = {
+          categoria: 'Pneu',
+          brand: parsed.brand,
+          model: parsed.model,
+          size: parsed.size,
+          aro: parsed.aro,
+          load: '',
+          app: '',
+          price: price,
+          stock: Number.isFinite(stock) ? stock : 0,
+          promo: false,
+          image: ''
+        };
+
+        // Atualiza o item se ele já estiver no catálogo; caso contrário, adiciona.
+        const existing = products.find(p =>
+          (p.categoria || 'Pneu') === 'Pneu' &&
+          String(p.brand || '').toLowerCase() === data.brand.toLowerCase() &&
+          String(p.model || '').toLowerCase() === data.model.toLowerCase() &&
+          String(p.aro || p.size || '').toLowerCase() === data.aro.toLowerCase()
+        );
+
+        if (existing) {
+          batch.set(db.collection('produtos').doc(existing.id), data, { merge: true });
+          updated++;
+        } else {
+          batch.set(db.collection('produtos').doc(), data);
+          added++;
+        }
+      });
     });
 
     await batch.commit();
-    alert(`Importação concluída!\n${added} item(ns) novo(s) adicionado(s)\n${updated} item(ns) atualizado(s)${skipped > 0 ? `\n${skipped} linha(s) ignorada(s) por faltar marca, modelo, medida ou preço` : ''}`);
+
+    alert(
+      `Importação concluída!\n` +
+      `${added} pneu(s) novo(s) adicionado(s)\n` +
+      `${updated} pneu(s) atualizado(s)` +
+      `${skipped > 0 ? `\n${skipped} linha(s) ignorada(s)` : ''}\n\n` +
+      `As abas 13 a 20 foram importadas e "Remold" foi ignorada.`
+    );
   } catch (e) {
     console.error(e);
-    alert('Não foi possível importar a planilha. Confira se o arquivo está no formato .xlsx, .xls ou .csv e se as colunas estão com os nomes certos (marca, modelo, medida, carga, aplicacao, preco, estoque, oferta, foto, categoria).');
+    alert('Não foi possível importar a planilha. Use o arquivo .xlsx enviado com as colunas Pneu, Valor Venda e Estoque.');
   }
 }
 
@@ -612,23 +673,42 @@ function getCategoryProducts() { return products.filter(p => (p.categoria || "Pn
 function getBrands() { return [...new Set(getCategoryProducts().map(p => p.brand))]; }
 function getApps() { return [...new Set(getCategoryProducts().map(p => p.app).filter(Boolean))]; }
 
+function getAros() {
+  return [...new Set(getCategoryProducts().map(p => p.aro || (String(p.size || '').match(/R(\d{2})/i)?.[1] ? String(p.size).match(/R(\d{2})/i)[1] : '').trim()).filter(Boolean))]
+    .sort((a, b) => Number(a) - Number(b));
+}
+
 function getFiltered() {
   return getCategoryProducts().filter(p => {
+    const productAro = String(p.aro || (String(p.size || '').match(/R(\d{2})/i)?.[1] || '')).trim();
+    const matchAro = aroFilter === "Todos" || productAro === aroFilter;
     const matchBrand = brandFilter === "Todas" || p.brand === brandFilter;
     const matchApp = appFilter === "Todas" || p.app === appFilter;
     const q = query.trim().toLowerCase();
-    const matchQuery = q === "" || p.size.toLowerCase().includes(q) || p.model.toLowerCase().includes(q) || p.brand.toLowerCase().includes(q);
-    return matchBrand && matchApp && matchQuery;
+    const matchQuery =
+      q === "" ||
+      String(p.size || "").toLowerCase().includes(q) ||
+      String(p.model || "").toLowerCase().includes(q) ||
+      String(p.brand || "").toLowerCase().includes(q) ||
+      productAro.toLowerCase().includes(q);
+    return matchAro && matchBrand && matchApp && matchQuery;
   });
 }
 
 function renderFilters() {
+  const aroWrap = document.getElementById('aroFilters');
   const brandWrap = document.getElementById('brandFilters');
   const appWrap = document.getElementById('appFilters');
+
+  const aros = ["Todos", ...getAros()];
   const brands = ["Todas", ...getBrands()];
   const apps = ["Todas", ...getApps()];
+
+  aroWrap.innerHTML = aros.map(a => `<button class="filter-opt ${a === aroFilter ? 'active' : ''}" data-aro="${a}">${a === 'Todos' ? 'Todos' : 'Aro ' + a}</button>`).join('');
   brandWrap.innerHTML = brands.map(b => `<button class="filter-opt ${b === brandFilter ? 'active' : ''}" data-brand="${b}">${b}</button>`).join('');
   appWrap.innerHTML = apps.map(a => `<button class="filter-opt ${a === appFilter ? 'active' : ''}" data-app="${a}">${a}</button>`).join('');
+
+  aroWrap.querySelectorAll('button').forEach(btn => btn.addEventListener('click', () => { aroFilter = btn.dataset.aro; render(); }));
   brandWrap.querySelectorAll('button').forEach(btn => btn.addEventListener('click', () => { brandFilter = btn.dataset.brand; render(); }));
   appWrap.querySelectorAll('button').forEach(btn => btn.addEventListener('click', () => { appFilter = btn.dataset.app; render(); }));
 }
@@ -914,7 +994,7 @@ document.getElementById('whatsappBtn').addEventListener('click', async () => {
     `Preço unitário: ${formatBRL(p.price)}`,
     `Total estimado: ${formatBRL(p.price * qty)}`,
   ];
-  const text = encodeURIComponent(lines.join('\n'));
+  const text = lines.join('\n');
   try {
     await db.collection('pedidos').add({
       produtoId: p.id,
@@ -931,7 +1011,7 @@ document.getElementById('whatsappBtn').addEventListener('click', async () => {
   } catch (e) {
     console.error('Não foi possível registrar o pedido:', e);
   }
-  window.location.href = `https://wa.me/${WHATSAPP_NUMBER}?text=${text}`;
+  window.location.href = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(text)}`;
 });
 
 /* ---- Busca ---- */
@@ -943,6 +1023,7 @@ document.querySelectorAll('.category-tab').forEach(btn => {
     categoryFilter = btn.dataset.category;
     brandFilter = "Todas";
     appFilter = "Todas";
+    aroFilter = "Todos";
     document.querySelectorAll('.category-tab').forEach(b => b.classList.toggle('active', b === btn));
     render();
   });
