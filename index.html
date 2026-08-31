@@ -620,11 +620,12 @@ async function importSpreadsheet(file) {
 
         const nome = String(map['pneu'] ?? '').replace(/\s+/g, ' ').trim();
 
-        // Acessórios: importar somente câmaras de ar.
-        // Válvulas e acessórios não fazem parte da importação.
+        // Acessórios: importar somente câmaras de ar válidas.
+        // Não importar registros/itens com os nomes ROPICOSECAS ou ACESSÓRIOS,
+        // nem válvulas e outros acessórios da planilha.
         if (
           categoryFilter === 'Acessórios' &&
-          (!/CAMARA/i.test(nome) || /VALVULA|ACESSORIO/i.test(nome))
+          (!/CAMARA/i.test(nome) || /VALVULA|ACESSORIO|ROPICOSECAS/i.test(nome))
         ) {
           skipped++;
           continue;
