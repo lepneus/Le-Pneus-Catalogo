@@ -971,6 +971,7 @@ function renderGrid() {
     <button class="import-btn" id="importBtn">📄 Importar planilha</button>
     <button class="import-btn" id="bulkImagesBtn">🖼️ Colocar imagens em lote</button>
     <button class="import-btn" id="downloadImageListsBtn">⬇️ Baixar listas de imagens</button>
+    <button class="import-btn danger" id="deleteZeroStockBtn">🗑️ Excluir sem estoque</button>
     <button class="import-btn danger" id="deleteOutOfStockBtn">🗑️ Excluir pneus sem estoque</button>
   `;
   html += `</div>`;
@@ -1272,6 +1273,31 @@ function downloadImageLists() {
 }
 
 document.getElementById('downloadImageListsBtn')?.addEventListener('click', downloadImageLists);
+
+async function deleteZeroStockByCategory() {
+  const category = categoryFilter;
+  const label = category === 'Pneu' ? 'pneus de carro' : category === 'Pneu de moto' ? 'pneus de moto' : 'acessórios';
+  const zeroStock = products.filter(p => (p.categoria || 'Pneu') === category && Number(p.stock || 0) <= 0);
+  if (!zeroStock.length) { alert(`Não há ${label} sem estoque para excluir.`); return; }
+  if (!confirm(`Excluir ${zeroStock.length} ${label} sem estoque? Esta ação não pode ser desfeita.`)) return;
+  const btn = document.getElementById('deleteZeroStockBtn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Excluindo...'; }
+  try {
+    for (let i = 0; i < zeroStock.length; i += 450) {
+      const batch = db.batch();
+      zeroStock.slice(i, i + 450).forEach(p => batch.delete(db.collection('produtos').doc(p.id)));
+      await batch.commit();
+    }
+    alert(`${zeroStock.length} ${label} sem estoque foram excluídos.`);
+  } catch (e) {
+    console.error('Erro ao excluir itens sem estoque:', e);
+    alert('Não foi possível excluir todos os itens. Verifique sua conexão e tente novamente.');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '🗑️ Excluir sem estoque'; }
+  }
+}
+
+document.getElementById('deleteZeroStockBtn')?.addEventListener('click', deleteZeroStockByCategory);
 
 bulkImagesInput.addEventListener('change', async () => {
   const files = [...bulkImagesInput.files].filter(f => f.type.startsWith('image/'));
