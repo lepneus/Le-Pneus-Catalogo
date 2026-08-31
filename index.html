@@ -971,8 +971,7 @@ function renderGrid() {
     <button class="import-btn" id="importBtn">📄 Importar planilha</button>
     <button class="import-btn" id="bulkImagesBtn">🖼️ Colocar imagens em lote</button>
     <button class="import-btn" id="downloadImageListsBtn">⬇️ Baixar listas de imagens</button>
-    <button class="import-btn danger" id="deleteZeroStockBtn">🗑️ Excluir sem estoque</button>
-    <button class="import-btn danger" id="deleteOutOfStockBtn">🗑️ Excluir pneus sem estoque</button>
+    <button class="import-btn" id="deleteZeroStockBtn" style="background:#b91c1c;color:#fff;border-color:#b91c1c;">🗑️ Excluir sem estoque</button>
   `;
   html += `</div>`;
 
@@ -1017,8 +1016,6 @@ function renderGrid() {
   if (newBtn) newBtn.addEventListener('click', () => openForm(null));
   const importBtn = document.getElementById('importBtn');
   if (importBtn) importBtn.addEventListener('click', () => document.getElementById('importFileInput').click());
-  const deleteOutOfStockBtn = document.getElementById('deleteOutOfStockBtn');
-  if (deleteOutOfStockBtn) deleteOutOfStockBtn.addEventListener('click', deleteOutOfStockProducts);
 }
 
 /* ---- Pedidos pendentes (sincronizados em tempo real) ---- */
@@ -1274,26 +1271,44 @@ function downloadImageLists() {
 
 document.getElementById('downloadImageListsBtn')?.addEventListener('click', downloadImageLists);
 
+function normalizeCategoryValue(value) {
+  return String(value || '')
+    .trim()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+}
+
 async function deleteZeroStockByCategory() {
-  const category = categoryFilter;
-  const label = category === 'Pneu' ? 'pneus de carro' : category === 'Pneu de moto' ? 'pneus de moto' : 'acessórios';
-  const zeroStock = products.filter(p => (p.categoria || 'Pneu') === category && Number(p.stock || 0) <= 0);
-  if (!zeroStock.length) { alert(`Não há ${label} sem estoque para excluir.`); return; }
-  if (!confirm(`Excluir ${zeroStock.length} ${label} sem estoque? Esta ação não pode ser desfeita.`)) return;
-  const btn = document.getElementById('deleteZeroStockBtn');
-  if (btn) { btn.disabled = true; btn.textContent = 'Excluindo...'; }
+  const target = normalizeCategoryValue(categoryFilter);
+  const label = categoryFilter === 'Pneu' ? 'pneus de carro' : categoryFilter === 'Pneu de moto' ? 'pneus de moto' : 'acessórios';
+
+  // Usa os produtos já sincronizados, mas aceita pequenas diferenças de acentuação/espaços na categoria.
+  const zeroStock = products.filter(p => {
+    const cat = normalizeCategoryValue(p.categoria || 'Pneu');
+    const stock = Number(String(p.stock ?? 0).replace(',', '.')) || 0;
+    return cat === target && stock <= 0;
+  });
+
+  if (!zeroStock.length) {
+    alert(`Não encontrei ${label} sem estoque para excluir.`);
+    return;
+  }
+
+  if (!confirm(`Excluir ${zeroStock.length} ${label} sem estoque?\n\nEsta ação não pode ser desfeita.`)) return;
+
   try {
+    // Firestore aceita no máximo 500 operações por batch.
     for (let i = 0; i < zeroStock.length; i += 450) {
       const batch = db.batch();
-      zeroStock.slice(i, i + 450).forEach(p => batch.delete(db.collection('produtos').doc(p.id)));
+      zeroStock.slice(i, i + 450).forEach(p => {
+        batch.delete(db.collection('produtos').doc(p.id));
+      });
       await batch.commit();
     }
-    alert(`${zeroStock.length} ${label} sem estoque foram excluídos.`);
+    alert(`${zeroStock.length} ${label} sem estoque foram excluídos com sucesso.`);
   } catch (e) {
     console.error('Erro ao excluir itens sem estoque:', e);
-    alert('Não foi possível excluir todos os itens. Verifique sua conexão e tente novamente.');
-  } finally {
-    if (btn) { btn.disabled = false; btn.textContent = '🗑️ Excluir sem estoque'; }
+    alert('Não foi possível excluir os itens sem estoque. Verifique sua conexão e as permissões do Firebase.');
   }
 }
 
@@ -1418,49 +1433,6 @@ productForm.addEventListener('submit', (e) => {
 function deleteProduct(id) {
   if (!confirm('Excluir este pneu do catálogo?')) return;
   deleteProductFromCloud(id);
-}
-
-async function deleteOutOfStockProducts() {
-  if (!adminMode) return;
-
-  const outOfStock = products.filter(p => (p.categoria || 'Pneu') !== 'Acessórios' && Number(p.stock || 0) <= 0);
-  if (!outOfStock.length) {
-    alert('Não há pneus sem estoque para excluir.');
-    return;
-  }
-
-  const confirmed = confirm(
-    `Serão excluídos ${outOfStock.length} pneu(s) sem estoque (estoque 0).\n\n` +
-    'Essa ação não pode ser desfeita. Deseja continuar?'
-  );
-  if (!confirmed) return;
-
-  const btn = document.getElementById('deleteOutOfStockBtn');
-  if (btn) {
-    btn.disabled = true;
-    btn.textContent = 'Excluindo...';
-  }
-
-  try {
-    // Firestore permite no máximo 500 operações por batch.
-    for (let i = 0; i < outOfStock.length; i += 450) {
-      const batch = db.batch();
-      outOfStock.slice(i, i + 450).forEach(p => {
-        batch.delete(db.collection('produtos').doc(p.id));
-      });
-      await batch.commit();
-    }
-
-    alert(`${outOfStock.length} pneu(s) sem estoque foram excluídos com sucesso.`);
-  } catch (e) {
-    console.error('Erro ao excluir pneus sem estoque:', e);
-    alert('Não foi possível excluir todos os pneus sem estoque. Verifique sua conexão e as permissões do Firebase.');
-  } finally {
-    if (btn) {
-      btn.disabled = false;
-      btn.textContent = '🗑️ Excluir pneus sem estoque';
-    }
-  }
 }
 
 /* ---- Detalhe do produto / pedido WhatsApp ---- */
