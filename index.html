@@ -171,14 +171,23 @@ button, input { font-family: inherit; }
 .category-tab:hover { color: var(--chalk); border-color: var(--chalk-dim); }
 .category-tab.active { background: var(--safety); color: var(--asphalt); border-color: var(--safety); }
 
-.shop-body { display: grid; grid-template-columns: minmax(0, 1fr) 240px; gap: 0; max-width: 1200px; margin: 0 auto; align-items: start; }
-.shop-body .filters { grid-column: 2; grid-row: 1; order: 2; position: sticky; top: 12px; max-height: calc(100vh - 24px); overflow-y: auto; }
-.shop-body .product-grid { grid-column: 1; grid-row: 1; order: 1; }
+
+.header-filter-wrap { position: relative; flex-shrink: 0; }
+.header-filter-btn { background: var(--rubber); border: 1px solid var(--line); color: var(--chalk-dim); border-radius: 4px; padding: 10px 13px; cursor: pointer; font-size: 12px; font-weight: 700; white-space: nowrap; }
+.header-filter-btn:hover, .header-filter-btn.active { border-color: var(--safety); color: var(--safety); }
+.header-filters-panel { position: absolute; top: calc(100% + 9px); right: 0; width: min(650px, 90vw); background: var(--rubber); border: 1px solid var(--line); border-radius: 8px; padding: 16px; box-shadow: 0 12px 35px rgba(0,0,0,.35); display: none; z-index: 25; }
+.header-filters-panel.open { display: block; }
+.header-filters-panel .filters { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 14px; padding: 0; border: 0; max-height: none; overflow: visible; }
+.header-filters-panel .filter-group { margin-bottom: 0; }
+.header-filters-panel .filter-title { margin-bottom: 8px; }
+.header-filters-panel .filter-opt { width: auto; display: inline-flex; border: 1px solid var(--line); border-left: 1px solid var(--line); border-radius: 5px; padding: 7px 9px; background: var(--asphalt); font-size: 12px; margin: 0 4px 5px 0; }
+.header-filters-panel .filter-opt.active { background: var(--safety); color: var(--asphalt); border-color: var(--safety); }
+.header-filters-panel .price-sort-wrap { grid-column: 1 / -1; border-top: 1px solid var(--line); padding-top: 12px; }
+.header-filters-panel .price-sort-select { width: 100%; }
+.shop-body { display: block; max-width: 1200px; margin: 0 auto; }
 .price-sort-wrap { margin-bottom: 28px; }
 .price-sort-select { width: 100%; background: var(--rubber); border: 1px solid var(--line); color: var(--chalk); border-radius: 4px; padding: 9px 10px; font-size: 13px; cursor: pointer; }
 .price-sort-select:focus { outline: 2px solid var(--safety); outline-offset: 1px; }
-@media (max-width: 800px) { .shop-body { grid-template-columns: 1fr; } .shop-body .filters { grid-column: 1; grid-row: 1; position: static; max-height: none; order: 1; } .shop-body .product-grid { grid-column: 1; grid-row: 2; order: 2; } }
-@media (max-width: 800px) { .shop-body { grid-template-columns: 1fr; } }
 .filters { padding: 32px 20px; border-left: 1px solid var(--line); border-right: none; }
 @media (max-width: 800px) { .filters { border-left: none; border-bottom: 1px solid var(--line); padding: 20px 24px; } }
 .filter-group { margin-bottom: 28px; }
@@ -359,6 +368,32 @@ button, input { font-family: inherit; }
     <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
     <input id="searchInput" type="text" placeholder="Buscar por medida, marca ou modelo...">
   </div>
+  <div class="header-filter-wrap">
+    <button type="button" class="header-filter-btn" id="headerFiltersBtn">☰ Filtros</button>
+    <div class="header-filters-panel" id="headerFiltersPanel">
+      <aside class="filters">
+    <div class="filter-group price-sort-wrap">
+      <div class="filter-title">Ordenar preço</div>
+      <select id="priceSort" class="price-sort-select" aria-label="Ordenar por preço">
+        <option value="desc">Maior para menor</option>
+        <option value="asc">Menor para maior</option>
+      </select>
+    </div>
+    <div class="filter-group">
+      <div class="filter-title">Aro</div>
+      <div id="aroFilters"></div>
+    </div>
+    <div class="filter-group">
+      <div class="filter-title">Marca</div>
+      <div id="brandFilters"></div>
+    </div>
+    <div class="filter-group">
+      <div class="filter-title">Aplicação</div>
+      <div id="appFilters"></div>
+    </div>
+  </aside>
+    </div>
+  </div>
   <button class="admin-toggle" id="adminToggleBtn">
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
     <span id="adminToggleLabel">Editar catálogo</span>
@@ -415,27 +450,6 @@ button, input { font-family: inherit; }
 
 
 <div class="shop-body">
-  <aside class="filters">
-    <div class="filter-group price-sort-wrap">
-      <div class="filter-title">Ordenar preço</div>
-      <select id="priceSort" class="price-sort-select" aria-label="Ordenar por preço">
-        <option value="desc">Maior para menor</option>
-        <option value="asc">Menor para maior</option>
-      </select>
-    </div>
-    <div class="filter-group">
-      <div class="filter-title">Aro</div>
-      <div id="aroFilters"></div>
-    </div>
-    <div class="filter-group">
-      <div class="filter-title">Marca</div>
-      <div id="brandFilters"></div>
-    </div>
-    <div class="filter-group">
-      <div class="filter-title">Aplicação</div>
-      <div id="appFilters"></div>
-    </div>
-  </aside>
   <main class="product-grid" id="productGrid"></main>
 </div>
 
@@ -1867,6 +1881,20 @@ document.getElementById('whatsappBtn').addEventListener('click', async () => {
 
 /* ---- Busca ---- */
 document.getElementById('searchInput').addEventListener('input', (e) => { query = e.target.value; renderGrid(); });
+const headerFiltersBtn = document.getElementById('headerFiltersBtn');
+const headerFiltersPanel = document.getElementById('headerFiltersPanel');
+headerFiltersBtn.addEventListener('click', (e) => {
+  e.stopPropagation();
+  const open = headerFiltersPanel.classList.toggle('open');
+  headerFiltersBtn.classList.toggle('active', open);
+});
+document.addEventListener('click', (e) => {
+  if (!headerFiltersPanel.contains(e.target) && e.target !== headerFiltersBtn) {
+    headerFiltersPanel.classList.remove('open');
+    headerFiltersBtn.classList.remove('active');
+  }
+});
+
 
 /* ---- Categoria (Pneus / Câmaras de ar) ---- */
 document.querySelectorAll('.category-tab').forEach(btn => {
