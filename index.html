@@ -690,9 +690,12 @@ async function importSpreadsheet(file) {
         const estoqueRaw = map['estoque'];
         const valorRaw = map['valor venda'];
 
-        const estoque = typeof estoqueRaw === 'number'
-          ? Math.trunc(estoqueRaw)
-          : (parseInt(String(estoqueRaw ?? '').replace(/[^\d-]/g, ''), 10) || 0);
+        const estoque = (() => {
+          if (typeof estoqueRaw === 'number') return Math.trunc(estoqueRaw);
+          const s = String(estoqueRaw ?? '').trim().replace(/\./g, '').replace(',', '.');
+          const n = Number(s);
+          return Number.isFinite(n) ? Math.trunc(n) : 0;
+        })();
 
         const valor = typeof valorRaw === 'number'
           ? valorRaw
@@ -741,12 +744,17 @@ async function importSpreadsheet(file) {
         }
 
         const key = normalize(nome);
+        const importedCatNorm = normalizeCategoryValue(importedCategory);
         const existing = products.find(p => {
-          const existingName = normalize(`${p.brand || ''} ${p.model || ''}`);
-          return (
-            existingName === key ||
-            normalize(p.model || '') === key
-          ) && (p.categoria || 'Pneu') === importedCategory;
+          const existingCat = normalizeCategoryValue(p.categoria || 'Pneu');
+          if (existingCat !== importedCatNorm) return false;
+
+          const existingModel = normalize(p.model || '');
+          const existingFullName = normalize(`${p.brand || ''} ${p.model || ''}`);
+
+          // Para moto e acessórios o modelo já contém o nome completo da planilha.
+          // Para carro o nome completo é marca + modelo.
+          return existingModel === key || existingFullName === key;
         });
 
         const data = {
@@ -806,7 +814,16 @@ document.getElementById('importFileInput').addEventListener('change', (e) => {
 });
 
 
-function getCategoryProducts() { return products.filter(p => (p.categoria || "Pneu") === categoryFilter); }
+function getCategoryProducts() {
+  // O catálogo público mostra somente itens realmente disponíveis.
+  // Produtos com estoque 0, negativo, vazio ou inválido ficam fora da vitrine.
+  return products.filter(p => {
+    const cat = normalizeCategoryValue(p.categoria || 'Pneu');
+    const target = normalizeCategoryValue(categoryFilter);
+    const stock = Number(String(p.stock ?? 0).replace(',', '.'));
+    return cat === target && Number.isFinite(stock) && stock > 0;
+  });
+}
 function getBrands() {
   return [...new Set(
     getCategoryProducts()
