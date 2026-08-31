@@ -322,6 +322,21 @@ button, input { font-family: inherit; }
 .category-image-admin button { border:1px solid var(--line); background:#151515; color:var(--chalk); border-radius:5px; padding:8px 11px; cursor:pointer; font-size:12px; }
 .category-image-admin button:hover { border-color:var(--safety); }
 .category-image-admin .remove-category-image { color:#ff7b7b; }
+
+/* Ferramentas de edição do catálogo */
+.admin-tools { max-width: 1180px; margin: 14px auto 0; padding: 0 20px; display:none; }
+.admin-tools-inner { display:flex; gap:10px; flex-wrap:wrap; padding:12px; border:1px solid var(--line); border-radius:8px; background:var(--rubber); }
+.admin-tool-btn { border:1px solid var(--line); background:#151515; color:var(--chalk); border-radius:6px; padding:9px 12px; cursor:pointer; font-size:12px; font-weight:700; }
+.admin-tool-btn:hover { border-color:var(--safety); color:var(--safety); }
+.site-settings-help { color:var(--chalk-dim); font-size:12px; line-height:1.5; margin:0 0 14px; }
+.site-settings-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+.site-settings-grid .full-row { grid-column:1 / -1; }
+.site-settings-grid textarea { min-height:90px; resize:vertical; }
+.site-bg-preview { width:100%; max-height:180px; object-fit:cover; border-radius:6px; border:1px solid var(--line); margin-top:8px; display:none; }
+@media (max-width:700px) { .site-settings-grid { grid-template-columns:1fr; } .site-settings-grid .full-row { grid-column:auto; } }
+.stock-summary-modal { max-width:720px; }
+.stock-summary-modal .admin-stock-summary { margin:0; padding:0; max-width:none; }
+.stock-summary-modal .admin-stock-tabs { margin-top:8px; }
 </style>
 </head>
 <body>
@@ -345,12 +360,12 @@ button, input { font-family: inherit; }
 
 <section class="hero">
   <div class="hero-inner">
-    <div class="hero-eyebrow">Estoque atualizado diariamente</div>
-    <h1>Pneu certo, <em>medida certa</em>, sem enrolação</h1>
-    <p>Catálogo direto do estoque: filtre por medida, marca ou aplicação e monte seu pedido. Na compra de seus pneus, montagem e balanceamento inclusos.</p>
+    <div class="hero-eyebrow" id="heroEyebrow">Estoque atualizado diariamente</div>
+    <h1 id="heroTitle"><span id="heroTitleLead">Pneu certo</span>, <em id="heroTitleHighlight">medida certa</em><span id="heroTitleTail">, sem enrolação</span></h1>
+    <p id="heroDescription">Catálogo direto do estoque: filtre por medida, marca ou aplicação e monte seu pedido. Na compra de seus pneus, montagem e balanceamento inclusos.</p>
     <div class="hero-badges">
-      <div class="hero-badge"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/></svg> Garantia de fábrica</div>
-      <div class="hero-badge"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg> Montagem e balanceamento</div>
+      <div class="hero-badge"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/></svg> <span id="heroBadge1">Garantia de fábrica</span></div>
+      <div class="hero-badge"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg> <span id="heroBadge2">Montagem e balanceamento</span></div>
     </div>
   </div>
 </section>
@@ -360,15 +375,33 @@ button, input { font-family: inherit; }
   <button class="category-tab" data-category="Pneu de moto">Pneus de moto</button>
   <button class="category-tab" data-category="Acessórios">Acessórios</button>
 </div>
-<div class="category-image-admin" id="categoryImageAdmin" style="display:none;"></div>
-<div id="adminStockSummary" class="admin-stock-summary" style="display:none;">
-  <div class="admin-stock-title">📦 Resumo do estoque</div>
-  <div class="admin-stock-tabs">
-    <div class="admin-stock-tab"><span>🚗 Pneus de carro</span><strong id="adminCountCar">0</strong></div>
-    <div class="admin-stock-tab"><span>🏍️ Pneus de moto</span><strong id="adminCountMoto">0</strong></div>
-    <div class="admin-stock-tab"><span>🔧 Acessórios</span><strong id="adminCountAccessories">0</strong></div>
-    <div class="admin-stock-tab total"><span>🛞 Total de pneus</span><strong id="adminCountTires">0</strong></div>
+
+<div class="admin-tools" id="adminTools">
+  <div class="admin-tools-inner">
+    <button type="button" class="admin-tool-btn" id="openStockSummaryBtn">📦 Resumo do estoque</button>
+    <button type="button" class="admin-tool-btn" id="openSiteTextBtn">✏️ Editar textos</button>
+    <button type="button" class="admin-tool-btn" id="openSiteBackgroundBtn">🖼️ Foto de fundo do site</button>
   </div>
+</div>
+
+<div class="category-image-admin" id="categoryImageAdmin" style="display:none;"></div>
+
+<!-- Resumo do estoque separado da navegação das categorias -->
+<div class="modal stock-summary-modal" id="stockSummaryModal">
+  <div class="modal-head">
+    <h2>📦 Resumo do estoque</h2>
+    <button class="close-btn" id="closeStockSummaryModal">✕</button>
+  </div>
+  <div class="admin-stock-summary">
+    <div class="admin-stock-tabs">
+      <div class="admin-stock-tab"><span>🚗 Pneus de carro</span><strong id="adminCountCar">0</strong></div>
+      <div class="admin-stock-tab"><span>🏍️ Pneus de moto</span><strong id="adminCountMoto">0</strong></div>
+      <div class="admin-stock-tab"><span>🔧 Acessórios</span><strong id="adminCountAccessories">0</strong></div>
+      <div class="admin-stock-tab total"><span>🛞 Total de pneus</span><strong id="adminCountTires">0</strong></div>
+    </div>
+  </div>
+</div>
+
 </div>
 
 
@@ -388,6 +421,46 @@ button, input { font-family: inherit; }
     </div>
   </aside>
   <main class="product-grid" id="productGrid"></main>
+</div>
+
+<!-- Modal: edição dos textos do site -->
+<div class="modal" id="siteTextModal">
+  <div class="modal-head">
+    <h2>✏️ Editar textos do site</h2>
+    <button class="close-btn" id="closeSiteTextModal">✕</button>
+  </div>
+  <form class="product-form site-settings-grid" id="siteTextForm">
+    <p class="site-settings-help full-row">Altere os textos da área principal do catálogo. As alterações ficam salvas no Firebase e aparecem para todos os visitantes.</p>
+    <label>Texto superior<input type="text" id="siteTextEyebrow"></label>
+    <label>Primeiro trecho do título<input type="text" id="siteTextTitleLead"></label>
+    <label>Trecho destacado do título<input type="text" id="siteTextTitleHighlight"></label>
+    <label>Final do título<input type="text" id="siteTextTitleTail"></label>
+    <label class="full-row">Descrição<textarea id="siteTextDescription"></textarea></label>
+    <label>Primeiro destaque<input type="text" id="siteTextBadge1"></label>
+    <label>Segundo destaque<input type="text" id="siteTextBadge2"></label>
+    <div class="form-actions full-row">
+      <button type="button" class="cancel-btn" id="cancelSiteTextBtn">Cancelar</button>
+      <button type="submit" class="save-btn">Salvar textos</button>
+    </div>
+  </form>
+</div>
+
+<!-- Modal: foto de fundo -->
+<div class="modal" id="siteBackgroundModal">
+  <div class="modal-head">
+    <h2>🖼️ Foto de fundo do site</h2>
+    <button class="close-btn" id="closeSiteBackgroundModal">✕</button>
+  </div>
+  <div class="product-form">
+    <p class="site-settings-help">Escolha uma foto para usar como fundo da área principal do site. A imagem será comprimida antes de ser salva.</p>
+    <input type="file" id="siteBackgroundInput" accept="image/*" style="display:none;">
+    <button type="button" class="admin-tool-btn" id="chooseSiteBackgroundBtn">🖼️ Escolher foto</button>
+    <img id="siteBackgroundPreview" class="site-bg-preview" src="" alt="Pré-visualização do fundo">
+    <div class="form-actions" style="margin-top:14px;">
+      <button type="button" class="cancel-btn" id="removeSiteBackgroundBtn">✕ Remover fundo</button>
+      <button type="button" class="save-btn" id="saveSiteBackgroundBtn">Salvar fundo</button>
+    </div>
+  </div>
 </div>
 
 <!-- Overlay -->
@@ -544,6 +617,16 @@ let products = [];
 let nextId = 1000;
 let adminMode = false;
 let categoryImages = { Pneu: '', 'Pneu de moto': '', 'Acessórios': '' };
+let siteSettings = {
+  eyebrow: 'Estoque atualizado diariamente',
+  titleLead: 'Pneu certo',
+  titleHighlight: 'medida certa',
+  titleTail: ', sem enrolação',
+  description: 'Catálogo direto do estoque: filtre por medida, marca ou aplicação e monte seu pedido. Na compra de seus pneus, montagem e balanceamento inclusos.',
+  badge1: 'Garantia de fábrica',
+  badge2: 'Montagem e balanceamento',
+  background: ''
+};
 let categoryFilter = "Pneu";
 let brandFilter = "Todas";
 let appFilter = "Todas";
@@ -881,9 +964,7 @@ function getFiltered() {
 
 
 function renderAdminStockSummary() {
-  const wrap = document.getElementById('adminStockSummary');
-  if (!wrap) return;
-  if (!adminMode) { wrap.style.display = 'none'; return; }
+  if (!adminMode) return;
   const stockOf = p => {
     const n = Number(String(p.stock ?? '').trim().replace(',', '.'));
     return Number.isFinite(n) ? n : 0;
@@ -898,7 +979,6 @@ function renderAdminStockSummary() {
   document.getElementById('adminCountMoto').textContent = sum(moto);
   document.getElementById('adminCountAccessories').textContent = sum(acc);
   document.getElementById('adminCountTires').textContent = sum(car) + sum(moto);
-  wrap.style.display = 'block';
 }
 
 function renderCategoryImageAdmin() {
@@ -993,6 +1073,99 @@ document.getElementById('categoryImageInput').addEventListener('change', async (
     alert('Não foi possível preparar essa imagem.');
   }
 });
+
+async function loadSiteSettings() {
+  try {
+    const snap = await db.collection('configuracoes').doc('site').get();
+    if (snap.exists) siteSettings = { ...siteSettings, ...(snap.data() || {}) };
+    applySiteSettings();
+  } catch (e) {
+    console.warn('Não foi possível carregar as configurações do site:', e);
+  }
+}
+
+function applySiteSettings() {
+  const eyebrow = document.getElementById('heroEyebrow');
+  const lead = document.getElementById('heroTitleLead');
+  const highlight = document.getElementById('heroTitleHighlight');
+  const tail = document.getElementById('heroTitleTail');
+  const description = document.getElementById('heroDescription');
+  const badge1 = document.getElementById('heroBadge1');
+  const badge2 = document.getElementById('heroBadge2');
+  if (eyebrow) eyebrow.textContent = siteSettings.eyebrow || '';
+  if (lead) lead.textContent = siteSettings.titleLead || '';
+  if (highlight) highlight.textContent = siteSettings.titleHighlight || '';
+  if (tail) tail.textContent = siteSettings.titleTail || '';
+  if (description) description.textContent = siteSettings.description || '';
+  if (badge1) badge1.textContent = siteSettings.badge1 || '';
+  if (badge2) badge2.textContent = siteSettings.badge2 || '';
+  const hero = document.querySelector('.hero');
+  if (hero) {
+    hero.style.backgroundImage = siteSettings.background
+      ? `linear-gradient(rgba(8,8,8,.72), rgba(8,8,8,.72)), url("${siteSettings.background}")`
+      : '';
+    hero.style.backgroundSize = siteSettings.background ? 'cover' : '';
+    hero.style.backgroundPosition = siteSettings.background ? 'center' : '';
+  }
+}
+
+async function saveSiteSettings(patch) {
+  try {
+    await db.collection('configuracoes').doc('site').set(patch, { merge: true });
+    siteSettings = { ...siteSettings, ...patch };
+    applySiteSettings();
+    return true;
+  } catch (e) {
+    console.error(e);
+    alert('Não foi possível salvar a configuração. Verifique sua conexão e as permissões do Firebase.');
+    return false;
+  }
+}
+
+function compressBackgroundImage(file, maxSize = 1600, quality = 0.76) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const reader = new FileReader();
+    reader.onload = () => { img.src = reader.result; };
+    reader.onerror = reject;
+    img.onload = () => {
+      const scale = Math.min(1, maxSize / Math.max(img.width, img.height));
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.max(1, Math.round(img.width * scale));
+      canvas.height = Math.max(1, Math.round(img.height * scale));
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      resolve(canvas.toDataURL('image/jpeg', quality));
+    };
+    img.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+function openSiteTextEditor() {
+  document.getElementById('siteTextEyebrow').value = siteSettings.eyebrow || '';
+  document.getElementById('siteTextTitleLead').value = siteSettings.titleLead || '';
+  document.getElementById('siteTextTitleHighlight').value = siteSettings.titleHighlight || '';
+  document.getElementById('siteTextTitleTail').value = siteSettings.titleTail || '';
+  document.getElementById('siteTextDescription').value = siteSettings.description || '';
+  document.getElementById('siteTextBadge1').value = siteSettings.badge1 || '';
+  document.getElementById('siteTextBadge2').value = siteSettings.badge2 || '';
+  showOverlayAnd(document.getElementById('siteTextModal'));
+}
+
+function openSiteBackgroundEditor() {
+  const preview = document.getElementById('siteBackgroundPreview');
+  preview.src = siteSettings.background || '';
+  preview.dataset.pending = '';
+  preview.style.display = siteSettings.background ? 'block' : 'none';
+  document.getElementById('siteBackgroundInput').value = '';
+  showOverlayAnd(document.getElementById('siteBackgroundModal'));
+}
+
+function renderAdminTools() {
+  const tools = document.getElementById('adminTools');
+  if (tools) tools.style.display = adminMode ? 'block' : 'none';
+}
 
 function renderFilters() {
   const aroWrap = document.getElementById('aroFilters');
@@ -1141,11 +1314,12 @@ async function rejectOrder(orderId) {
 }
 
 function render() {
-  renderAdminStockSummary();
+  renderAdminTools();
   renderFilters();
   renderGrid();
   renderOrdersPanel();
   renderCategoryImageAdmin();
+  applySiteSettings();
 }
 
 /* ---- Admin toggle / senha ---- */
@@ -1187,6 +1361,66 @@ document.getElementById('passwordForm').addEventListener('submit', (e) => {
   }
 });
 
+
+/* ---- Ferramentas de edição do site ---- */
+const stockSummaryModal = document.getElementById('stockSummaryModal');
+const siteTextModal = document.getElementById('siteTextModal');
+const siteBackgroundModal = document.getElementById('siteBackgroundModal');
+
+document.getElementById('openStockSummaryBtn').addEventListener('click', () => {
+  renderAdminStockSummary();
+  showOverlayAnd(stockSummaryModal);
+});
+document.getElementById('closeStockSummaryModal').addEventListener('click', () => hideOverlayAnd(stockSummaryModal));
+
+document.getElementById('openSiteTextBtn').addEventListener('click', openSiteTextEditor);
+document.getElementById('closeSiteTextModal').addEventListener('click', () => hideOverlayAnd(siteTextModal));
+document.getElementById('cancelSiteTextBtn').addEventListener('click', () => hideOverlayAnd(siteTextModal));
+document.getElementById('siteTextForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const ok = await saveSiteSettings({
+    eyebrow: document.getElementById('siteTextEyebrow').value.trim(),
+    titleLead: document.getElementById('siteTextTitleLead').value.trim(),
+    titleHighlight: document.getElementById('siteTextTitleHighlight').value.trim(),
+    titleTail: document.getElementById('siteTextTitleTail').value,
+    description: document.getElementById('siteTextDescription').value.trim(),
+    badge1: document.getElementById('siteTextBadge1').value.trim(),
+    badge2: document.getElementById('siteTextBadge2').value.trim()
+  });
+  if (ok) { hideOverlayAnd(siteTextModal); alert('Textos atualizados com sucesso.'); }
+});
+
+document.getElementById('openSiteBackgroundBtn').addEventListener('click', openSiteBackgroundEditor);
+document.getElementById('closeSiteBackgroundModal').addEventListener('click', () => hideOverlayAnd(siteBackgroundModal));
+document.getElementById('chooseSiteBackgroundBtn').addEventListener('click', () => document.getElementById('siteBackgroundInput').click());
+document.getElementById('siteBackgroundInput').addEventListener('change', async (e) => {
+  const file = e.target.files?.[0];
+  if (!file) return;
+  try {
+    const dataUrl = await compressBackgroundImage(file);
+    const preview = document.getElementById('siteBackgroundPreview');
+    preview.src = dataUrl;
+    preview.dataset.pending = dataUrl;
+    preview.style.display = 'block';
+  } catch (err) {
+    console.error(err);
+    alert('Não foi possível preparar essa foto.');
+  }
+});
+document.getElementById('saveSiteBackgroundBtn').addEventListener('click', async () => {
+  const preview = document.getElementById('siteBackgroundPreview');
+  const dataUrl = preview.dataset.pending || siteSettings.background || '';
+  const ok = await saveSiteSettings({ background: dataUrl });
+  if (ok) { preview.dataset.pending = ''; hideOverlayAnd(siteBackgroundModal); alert(dataUrl ? 'Foto de fundo aplicada com sucesso.' : 'Fundo removido.'); }
+});
+document.getElementById('removeSiteBackgroundBtn').addEventListener('click', async () => {
+  const ok = await saveSiteSettings({ background: '' });
+  if (ok) {
+    const preview = document.getElementById('siteBackgroundPreview');
+    preview.src = ''; preview.dataset.pending = ''; preview.style.display = 'none';
+    alert('Foto de fundo removida.');
+  }
+});
 
 /* ---- Imagens em lote ---- */
 const bulkImagesModal = document.getElementById('bulkImagesModal');
@@ -1590,11 +1824,15 @@ overlay.addEventListener('click', () => {
   hideOverlayAnd(formModal);
   hideOverlayAnd(detailModal);
   hideOverlayAnd(bulkImagesModal);
+  hideOverlayAnd(stockSummaryModal);
+  hideOverlayAnd(siteTextModal);
+  hideOverlayAnd(siteBackgroundModal);
 });
 
 /* ---- Init ---- */
 initProducts();
 loadCategoryImages();
+loadSiteSettings();
 initOrders();
 render();
 </script>
