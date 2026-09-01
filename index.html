@@ -151,16 +151,9 @@ button, input { font-family: inherit; }
 .category-tabs {
   max-width: 1200px;
   margin: 0 auto;
-  padding: 12px 24px 12px;
+  padding: 20px 24px 0;
   display: flex;
   gap: 10px;
-  position: sticky;
-  top: var(--shop-header-height, 0px);
-  z-index: 15;
-  background: rgba(18, 18, 18, 0.96);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  border-bottom: 1px solid var(--line);
 }
 .category-tab {
   background: var(--rubber);
@@ -398,7 +391,7 @@ body{overflow-x:hidden;background:radial-gradient(circle at 85% 0,rgba(255,210,2
  .shop-header{padding:12px 14px;gap:10px}.search-wrap{order:3;flex-basis:100%;max-width:none;min-width:0}
  .header-filter-wrap{margin-left:auto}.header-filters-panel{position:fixed;top:70px;left:10px;right:10px;width:auto;max-height:calc(100vh - 85px);overflow-y:auto}
  .header-filters-panel .filters{grid-template-columns:1fr}.hero{min-height:auto;padding:48px 18px 34px}.hero h1{font-size:clamp(30px,10vw,42px)}
- .category-tabs{padding:10px 14px;overflow-x:auto;scrollbar-width:none;top:var(--shop-header-height,0px)}.category-tabs::-webkit-scrollbar{display:none}.category-tab{flex:0 0 auto}
+ .category-tabs{padding:14px 14px 0;overflow-x:auto;scrollbar-width:none}.category-tabs::-webkit-scrollbar{display:none}.category-tab{flex:0 0 auto}
  .card-visual{min-height:155px}
 }
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}}
@@ -672,24 +665,6 @@ body{overflow-x:hidden;background:radial-gradient(circle at 85% 0,rgba(255,210,2
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore-compat.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<script>
-/* Mantém a barra de categorias presa logo abaixo do cabeçalho durante a rolagem. */
-(function () {
-  function updateCategoryBarPosition() {
-    var header = document.querySelector('.shop-header');
-    if (!header) return;
-    document.documentElement.style.setProperty(
-      '--shop-header-height',
-      header.getBoundingClientRect().height + 'px'
-    );
-  }
-
-  window.addEventListener('load', updateCategoryBarPosition);
-  window.addEventListener('resize', updateCategoryBarPosition);
-  document.addEventListener('DOMContentLoaded', updateCategoryBarPosition);
-
-  setTimeout(updateCategoryBarPosition, 300);
-})();
 <script>
 const firebaseConfig = {
   apiKey: "AIzaSyBGS1CZD-jgQsLcL7wLnXqBZbodrAC-cIQ",
