@@ -1527,9 +1527,76 @@ body:not(.lp-intro-ready) .lp-intro-sweep{animation-play-state:paused!important;
 }
 </style>
 
+
+<style id="lp-intro-mobile-stable-v2">
+/* Intro robusta: usa fases por classe em vez de depender de keyframes/!important no celular. */
+.lp-splash.lp-stable-intro{display:grid!important;opacity:1!important;visibility:visible!important;background:#050607!important;}
+.lp-splash.lp-stable-intro .lp-splash-photo,
+.lp-splash.lp-stable-intro .lp-splash-shade,
+.lp-splash.lp-stable-intro .lp-splash-mark,
+.lp-splash.lp-stable-intro .lp-splash-kicker,
+.lp-splash.lp-stable-intro .lp-splash-headline,
+.lp-splash.lp-stable-intro .lp-splash-message,
+.lp-splash.lp-stable-intro .lp-intro-benefits,
+.lp-splash.lp-stable-intro .lp-splash-line,
+.lp-splash.lp-stable-intro .lp-splash-line i,
+.lp-splash.lp-stable-intro .lp-intro-sweep{animation:none!important;}
+.lp-splash.lp-stable-intro .lp-splash-photo{
+  z-index:0!important;opacity:0!important;transform:scale(1.10)!important;
+  filter:blur(18px) brightness(.46) saturate(.92) contrast(1.06)!important;
+  transition:opacity .42s ease,transform .85s cubic-bezier(.2,.75,.2,1),filter .78s ease!important;
+}
+.lp-splash.lp-stable-intro .lp-splash-shade{z-index:1!important;opacity:0!important;transition:opacity .5s ease!important;}
+.lp-splash.lp-stable-intro .lp-splash-inner{z-index:4!important;}
+.lp-splash.lp-stable-intro .lp-splash-mark,
+.lp-splash.lp-stable-intro .lp-splash-kicker,
+.lp-splash.lp-stable-intro .lp-splash-headline,
+.lp-splash.lp-stable-intro .lp-splash-message,
+.lp-splash.lp-stable-intro .lp-intro-benefits,
+.lp-splash.lp-stable-intro .lp-splash-line{
+  opacity:0!important;transform:translateY(14px)!important;filter:blur(7px)!important;
+  transition:opacity .38s ease,transform .48s cubic-bezier(.16,.84,.24,1),filter .42s ease!important;
+}
+.lp-splash.lp-stable-intro .lp-splash-line i{transform:scaleX(0)!important;transition:transform .42s cubic-bezier(.4,0,.2,1)!important;}
+.lp-splash.lp-stable-intro .lp-intro-sweep{opacity:0!important;transform:translateX(-72%)!important;transition:transform .5s ease,opacity .16s ease!important;}
+/* fase 1: primeiro somente a foto */
+.lp-splash.lp-stable-intro.lp-phase-photo .lp-splash-photo{opacity:1!important;}
+.lp-splash.lp-stable-intro.lp-phase-photo .lp-splash-shade{opacity:.72!important;}
+/* fase 2: foto ganha foco */
+.lp-splash.lp-stable-intro.lp-phase-focus .lp-splash-photo{
+  opacity:1!important;transform:scale(1.045) translate3d(-.35%,-.15%,0)!important;
+  filter:blur(2px) brightness(.61) saturate(1) contrast(1.08)!important;
+}
+/* fase 3: textos entram em sequência */
+.lp-splash.lp-stable-intro.lp-phase-text .lp-splash-mark,
+.lp-splash.lp-stable-intro.lp-phase-text .lp-splash-kicker,
+.lp-splash.lp-stable-intro.lp-phase-text .lp-splash-headline,
+.lp-splash.lp-stable-intro.lp-phase-text .lp-splash-message,
+.lp-splash.lp-stable-intro.lp-phase-text .lp-intro-benefits,
+.lp-splash.lp-stable-intro.lp-phase-text .lp-splash-line{opacity:1!important;transform:translateY(0)!important;filter:blur(0)!important;}
+.lp-splash.lp-stable-intro.lp-phase-text .lp-splash-kicker{transition-delay:.08s!important;}
+.lp-splash.lp-stable-intro.lp-phase-text .lp-splash-headline{transition-delay:.15s!important;}
+.lp-splash.lp-stable-intro.lp-phase-text .lp-splash-message{transition-delay:.23s!important;}
+.lp-splash.lp-stable-intro.lp-phase-text .lp-intro-benefits{transition-delay:.30s!important;}
+.lp-splash.lp-stable-intro.lp-phase-text .lp-splash-line{transition-delay:.34s!important;}
+.lp-splash.lp-stable-intro.lp-phase-text .lp-splash-line i{transform:scaleX(1)!important;transition-delay:.38s!important;}
+/* fase 4: faixa vermelha perceptível */
+.lp-splash.lp-stable-intro.lp-phase-sweep .lp-intro-sweep{opacity:1!important;transform:translateX(72%)!important;}
+.lp-splash.lp-stable-intro.lp-phase-exit{opacity:0!important;transform:scale(1.018)!important;filter:blur(3px)!important;transition:opacity .55s ease,transform .6s ease,filter .55s ease!important;}
+@media(max-width:820px){
+  .lp-splash.lp-stable-intro .lp-splash-photo{inset:-4%!important;background-position:center!important;}
+  .lp-splash.lp-stable-intro .lp-splash-mark{font-size:clamp(46px,16vw,72px)!important;}
+  .lp-splash.lp-stable-intro .lp-splash-headline{font-size:clamp(24px,8vw,38px)!important;}
+  .lp-splash.lp-stable-intro .lp-intro-benefits{display:flex!important;flex-wrap:wrap!important;justify-content:center!important;}
+}
+@media(prefers-reduced-motion:reduce){
+  .lp-splash.lp-stable-intro .lp-splash-photo{filter:brightness(.58)!important;transform:scale(1.02)!important;}
+}
+</style>
+
 </head>
 <body>
-<div class="lp-splash" aria-hidden="true">
+<div class="lp-splash lp-stable-intro" aria-hidden="true">
   <div class="lp-splash-photo" aria-hidden="true"></div>
   <div class="lp-splash-shade" aria-hidden="true"></div>
   <div class="lp-intro-light" aria-hidden="true"></div>
@@ -3375,20 +3442,26 @@ document.getElementById('whatsappBtn').addEventListener('click', async () => {
   window.__lpStartIntro = () => {
     if (!splash || window.__lpIntroStarted) return;
     window.__lpIntroStarted = true;
-    splash.classList.remove('done');
+    splash.classList.remove('done','lp-phase-photo','lp-phase-focus','lp-phase-text','lp-phase-sweep','lp-phase-exit');
+    splash.classList.add('lp-stable-intro');
     splash.style.display = 'grid';
     splash.style.visibility = 'visible';
     splash.style.opacity = '1';
     document.body.classList.remove('lp-intro-finished');
     document.body.classList.add('lp-intro-ready');
 
-    // Dá dois frames para o celular realmente desenhar o fundo antes da animação.
+    // Sequência de 3s, independente de CSS animations e confiável no Safari/Chrome mobile.
     requestAnimationFrame(() => requestAnimationFrame(() => {
+      splash.classList.add('lp-phase-photo');          // 0.0s: foto aparece
+      window.setTimeout(() => splash.classList.add('lp-phase-focus'), 480);   // foco
+      window.setTimeout(() => splash.classList.add('lp-phase-text'), 1120);   // textos
+      window.setTimeout(() => splash.classList.add('lp-phase-sweep'), 2380);  // faixa de luz
+      window.setTimeout(() => splash.classList.add('lp-phase-exit'), 2580);   // transição catálogo
       window.setTimeout(() => {
         splash.classList.add('done');
         document.body.classList.add('lp-intro-finished');
-        window.setTimeout(() => { splash.style.display = 'none'; }, 760);
-      }, 3000);
+      }, 2940);
+      window.setTimeout(() => { splash.style.display = 'none'; }, 3200);
     }));
   };
 })();
@@ -3515,11 +3588,11 @@ overlay.addEventListener('click', () => {
   // Mesmo se algum serviço externo falhar, a tela de abertura nunca fica presa.
   window.setTimeout(function(){
     if (!splash.classList.contains('done')) {
-      splash.classList.add('done');
+      splash.classList.add('lp-phase-exit','done');
       document.body.classList.add('lp-intro-finished');
-      window.setTimeout(function(){ splash.style.display='none'; }, 800);
+      window.setTimeout(function(){ splash.style.display='none'; }, 650);
     }
-  }, 3900);
+  }, 5000);
 })();
 </script>
 
