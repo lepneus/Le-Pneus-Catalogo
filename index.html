@@ -2057,6 +2057,7 @@ let selectedImageProductIds = new Set();
 let pendingImageDataUrl = '';
 let pendingImageManagerStart = false;
 let categoryImages = { Pneu: DEFAULT_TIRE_IMAGE, 'Pneu de moto': '', 'Acessórios': '' };
+let brandImages = {};
 let siteSettings = {
   eyebrow: 'Estoque atualizado diariamente',
   titleLead: 'Pneu certo',
@@ -2334,7 +2335,7 @@ async function importSpreadsheet(file) {
           price: valor,
           stock: estoque,
           promo: existing ? !!existing.promo : false,
-          image: existing ? (existing.image || '') : ''
+          image: existing ? (existing.image || brandImages[lpBrandImageKey(existing.brand || brand)] || '') : (brandImages[lpBrandImageKey(brand)] || '')
         };
 
         if (existing) {
@@ -2507,6 +2508,13 @@ async function loadCategoryImages() {
     console.warn('Não foi possível carregar as imagens das categorias:', e);
     if (!categoryImages.Pneu) categoryImages.Pneu = DEFAULT_TIRE_IMAGE;
     render();
+  }
+
+  try {
+    const brandSnap = await db.collection('configuracoes').doc('imagensMarcas').get();
+    if (brandSnap.exists) brandImages = { ...(brandSnap.data() || {}) };
+  } catch (e) {
+    console.warn('Não foi possível carregar imagens por marca:', e);
   }
 }
 
@@ -2753,7 +2761,8 @@ function renderGrid() {
 
   filtered.forEach(p => {
     const sharedCategoryImage = categoryImages[p.categoria || 'Pneu'] || ((p.categoria || 'Pneu') === 'Pneu' ? DEFAULT_TIRE_IMAGE : '');
-    const displayImage = p.image || sharedCategoryImage || '';
+    const sharedBrandImage = brandImages[lpBrandImageKey(p.brand)] || '';
+    const displayImage = p.image || sharedBrandImage || sharedCategoryImage || '';
     const visual = displayImage
       ? `<img src="${displayImage}" alt="${p.brand} ${p.model}" class="card-photo" data-shared-category="${sharedCategoryImage ? '1' : '0'}" onerror="if(!this.dataset.lpFallback && (this.closest('.product-card') || true)){this.dataset.lpFallback='1';this.src=window.LP_DEFAULT_TIRE_IMAGE;}else{this.style.display='none';this.nextElementSibling.style.display='flex';}"><div class="tire-ring" style="display:none;"><div class="tire-ring-inner"></div></div>`
       : `<div class="tire-ring"><div class="tire-ring-inner"></div></div>`;
@@ -2891,6 +2900,17 @@ function removeProductImageBackground(img) {
   work.src=source;
 }
 
+
+function lpBrandImageKey(value) {
+  return String(value || '')
+    .trim()
+    .toUpperCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^A-Z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '');
+}
+
 function lpFirstDescriptionWord(product) {
   const source = String(product?.model || product?.app || product?.size || 'PNEU').trim();
   const first = source.split(/\s+/)[0] || 'PNEU';
@@ -2970,7 +2990,7 @@ function toggleImageProductSelection(id) {
   renderGrid();
 }
 
-function compressSelectedProductImage(file, maxWidth = 1200, maxHeight = 850, quality = 0.82) {
+function compressSelectedProductImage(file, maxWidth = 760, maxHeight = 560, quality = 0.72) {
   return new Promise((resolve, reject) => {
     const img = new Image();
     const reader = new FileReader();
@@ -3000,25 +3020,70 @@ async function applySelectedProductImage() {
     return;
   }
   if (!pendingImageDataUrl || selectedImageProductIds.size === 0) return;
+
   const ids = [...selectedImageProductIds];
+  const selectedProducts = products.filter(p => selectedImageProductIds.has(String(p.id)));
+  const brands = [...new Set(selectedProducts.map(p => String(p.brand || '').trim()).filter(Boolean))];
+
   const btn = document.getElementById('imageManagerApplyBtn');
   const previous = btn?.textContent || 'Aplicar aos selecionados';
   if (btn) { btn.disabled = true; btn.textContent = 'Salvando...'; }
+
   try {
-    const batch = db.batch();
-    ids.forEach(id => batch.set(db.collection('produtos').doc(String(id)), { image: pendingImageDataUrl }, { merge: true }));
-    await batch.commit();
-    products = products.map(p => selectedImageProductIds.has(String(p.id)) ? { ...p, image: pendingImageDataUrl } : p);
+    // Salva em blocos menores para não estourar o limite do batch quando houver muitos pneus.
+    const chunkSize = 150;
+    for (let i = 0; i < ids.length; i += chunkSize) {
+      const chunk = ids.slice(i, i + chunkSize);
+      const batch = db.batch();
+      chunk.forEach(id => {
+        batch.set(db.collection('produtos').doc(String(id)), { image: pendingImageDataUrl }, { merge: true });
+      });
+      await batch.commit();
+    }
+
+    // Se todos os pneus selecionados são da mesma marca, guarda também uma cópia por marca.
+    // Assim, itens duplicados/novos daquela marca continuam mostrando a foto.
+    if (brands.length === 1) {
+      const key = lpBrandImageKey(brands[0]);
+      if (key) {
+        await db.collection('configuracoes').doc('imagensMarcas').set(
+          { [key]: pendingImageDataUrl },
+          { merge: true }
+        );
+        brandImages[key] = pendingImageDataUrl;
+      }
+    }
+
+    // Confirma os documentos diretamente no Firestore antes de limpar a seleção.
+    const verifyIds = ids.slice(0, Math.min(ids.length, 20));
+    for (const id of verifyIds) {
+      const check = await db.collection('produtos').doc(String(id)).get();
+      if (!check.exists || !check.data()?.image) {
+        throw new Error('A imagem não foi confirmada em um dos pneus.');
+      }
+    }
+
+    products = products.map(p =>
+      selectedImageProductIds.has(String(p.id))
+        ? { ...p, image: pendingImageDataUrl }
+        : p
+    );
+
     selectedImageProductIds.clear();
     pendingImageDataUrl = '';
     const previewWrap = document.getElementById('imageManagerPreviewWrap');
     if (previewWrap) previewWrap.hidden = true;
+
     const toast = document.getElementById('saveToast');
-    if (toast) { toast.textContent = `Imagem aplicada em ${ids.length} ${ids.length === 1 ? 'pneu' : 'pneus'}`; toast.classList.add('show'); setTimeout(() => toast.classList.remove('show'), 1900); }
+    if (toast) {
+      toast.textContent = `Imagem salva em ${ids.length} ${ids.length === 1 ? 'pneu' : 'pneus'}`;
+      toast.classList.add('show');
+      setTimeout(() => toast.classList.remove('show'), 1900);
+    }
     renderGrid();
   } catch (e) {
-    console.error(e);
-    alert('Não foi possível salvar a imagem. Confira o login e as permissões do Firebase.');
+    console.error('Falha ao salvar imagens:', e);
+    alert('A imagem não foi salva em todos os pneus. A seleção foi mantida para você tentar novamente.');
   } finally {
     if (btn) btn.textContent = previous;
     updateImageManagerToolbar();
@@ -3540,7 +3605,7 @@ function renderDetail() {
   const p = selectedProduct;
   document.getElementById('detailTitle').textContent = `${p.brand} ${p.model}`;
   const visual = document.getElementById('detailVisual');
-  const displayImage = categoryImages[p.categoria || 'Pneu'] || p.image || '';
+  const displayImage = p.image || brandImages[lpBrandImageKey(p.brand)] || categoryImages[p.categoria || 'Pneu'] || '';
   visual.innerHTML = displayImage
     ? `<img src="${displayImage}" alt="${p.brand} ${p.model}" class="detail-photo" onerror="this.style.display='none';">${tireStampHtml(p.size, p.load)}`
     : `<div class="tire-ring detail-ring"><div class="tire-ring-inner"></div></div>${tireStampHtml(p.size, p.load)}`;
