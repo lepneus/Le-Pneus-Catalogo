@@ -1610,16 +1610,7 @@ body:not(.lp-intro-ready) .lp-intro-sweep{animation-play-state:paused!important;
 @media(max-width:760px){.image-manager-btn{padding:9px 10px;min-width:44px}.image-manager-btn span{display:none}.header-filter-wrap{gap:6px}.image-manager-toolbar{margin:9px 10px 0;padding:12px}.image-manager-actions{width:100%}.image-manager-actions button{flex:1 1 calc(50% - 6px)}.image-manager-status{width:100%}}
 </style>
 
-<style id="lp-only-image-admin-control">
-#adminTools,
-.logo-admin-login,
-.admin-card-actions,
-.hero-admin-login,
-#adminLoginBtn,
-.category-image-admin {
-  display:none !important;
-}
-</style>
+
 
 
 <style id="lp-card-info-clean">
@@ -1671,6 +1662,34 @@ body:not(.lp-intro-ready) .lp-intro-sweep{animation-play-state:paused!important;
 }
 </style>
 
+
+<style id="lp-secure-image-admin">
+/* Ferramenta de imagens é exclusiva da área administrativa */
+#bulkImageBtn,
+#selectTiresImageBtn,
+.bulk-image-btn,
+.select-tires-image-btn,
+[data-admin-image-tool] {
+  display:none !important;
+}
+
+/* Exibe somente quando o site estiver no modo administrativo */
+body.admin-mode #bulkImageBtn,
+body.admin-mode #selectTiresImageBtn,
+body.admin-mode .bulk-image-btn,
+body.admin-mode .select-tires-image-btn,
+body.admin-logged #bulkImageBtn,
+body.admin-logged #selectTiresImageBtn,
+body.admin-logged .bulk-image-btn,
+body.admin-logged .select-tires-image-btn,
+body.is-admin #bulkImageBtn,
+body.is-admin #selectTiresImageBtn,
+body.is-admin .bulk-image-btn,
+body.is-admin .select-tires-image-btn {
+  display:inline-flex !important;
+}
+</style>
+
 </head>
 <body>
 <div class="lp-splash lp-stable-intro" aria-hidden="true">
@@ -1705,7 +1724,7 @@ body:not(.lp-intro-ready) .lp-intro-sweep{animation-play-state:paused!important;
     <input id="searchInput" type="text" placeholder="Buscar por medida, marca ou modelo...">
   </div>
   <div class="header-filter-wrap">
-    <button type="button" class="image-manager-btn" id="imageManagerBtn" title="Selecionar pneus e aplicar imagem">🖼️ <span>Selecionar pneus</span></button>
+    <button type="button" class="image-manager-btn" id="imageManagerBtn" title="Selecionar pneus e aplicar imagem" data-admin-image-tool="true">🖼️ <span>Selecionar pneus</span></button>
     <button type="button" class="header-filter-btn" id="headerFiltersBtn">☰ Filtros</button>
     <div class="header-filters-panel" id="headerFiltersPanel">
       <aside class="filters">
