@@ -1737,6 +1737,7 @@ body.is-admin #imageManagerBtn {
 <div class="image-manager-toolbar" id="imageManagerToolbar" aria-live="polite">
   <div class="image-manager-status"><strong id="imageManagerCount">0 pneus selecionados</strong><span>Toque nos pneus para marcar. Depois escolha uma imagem e aplique.</span></div>
   <div class="image-manager-actions">
+    <button type="button" id="imageManagerSelectVisibleBtn">✓ Selecionar todos visíveis</button>
     <button type="button" id="imageManagerChooseBtn">📷 Escolher imagem</button>
     <button type="button" id="imageManagerApplyBtn" disabled>Aplicar aos selecionados</button>
     <button type="button" id="imageManagerClearBtn">Limpar seleção</button>
@@ -2287,6 +2288,12 @@ async function importSpreadsheet(file) {
           brand = parts[0] || '';
           model = parts.slice(1).join(' ') || nome;
 
+          if (/^(?:PNEU|PNEUS)$/i.test(brand)) {
+            const tempProduct = { brand, model, size: medida };
+            const detected = lpResolvedBrand(tempProduct);
+            if (detected && !/^(?:PNEU|PNEUS)$/i.test(detected)) brand = detected;
+          }
+
         } else if (categoryFilter === 'Pneu de moto') {
           // Moto: a marca é o nome da aba (P. Michelin -> Michelin).
           brand = cleanSheetBrand(sheetName);
@@ -2391,12 +2398,69 @@ function getCategoryProducts() {
     return cat === target && Number.isFinite(stock) && stock > 0;
   });
 }
+
+const LP_KNOWN_BRANDS = ['DELINTE', 'LINGLONG', 'BRIDGESTONE', 'ROADCRUZA', 'APTANY', 'COMFORSER', 'WANLI', 'IRONHEAD', 'MICHELIN', 'LAUFENN', 'DUNLOP', 'XBRI', 'HANKOOK', 'PIRELLI', 'JK', 'TRIANGLE', 'MILEVER', 'ROADKING', 'SUNSET', 'CONTINENTAL', 'LANVIGATOR', 'DELMAX', 'TRACMAX', 'TORNEL', 'GOODYEAR', 'FIRESTONE', 'WESTLAKE', 'SAILUN', 'GOODRIDE', 'ROYAL BLACK', 'ROYALBLACK', 'DOUBLESTAR', 'CENTARA', 'DYNAMO', 'OVATION', 'KAPSEN', 'MAXXIS', 'NEXEN', 'KUMHO', 'YOKOHAMA', 'TOYO', 'DURATURN', 'FORTUNE', 'GITI', 'GENERAL', 'FALKEN', 'SUMITOMO', 'COOPER', 'BFGOODRICH'];
+
+
+function lpCanonicalBrand(value) {
+  let s = String(value || '')
+    .trim()
+    .toUpperCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[._/\\-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  s = s
+    .replace(/^(PNEU|PNEUS)\s+/i, '')
+    .replace(/\s+(PNEU|PNEUS|TIRE|TYRE|PNEUMATICO|PNEUMATICOS)$/i, '')
+    .trim();
+
+  const aliases = {
+    'JK TYRE': 'JK',
+    'JK TIRE': 'JK',
+    'ROYALBLACK': 'ROYAL BLACK',
+    'BF GOODRICH': 'BFGOODRICH'
+  };
+  return aliases[s] || s;
+}
+
+function lpBrandKey(value) {
+  return lpCanonicalBrand(value).replace(/[^A-Z0-9]/g, '');
+}
+
+function lpResolvedBrand(p) {
+  const rawBrand = lpCanonicalBrand(p?.brand || '');
+
+  if (rawBrand && !/^(?:PNEU|PNEUS|PNEUSTIRE)$/i.test(rawBrand.replace(/\s+/g, ''))) {
+    const rawKey = lpBrandKey(rawBrand);
+    const known = LP_KNOWN_BRANDS.find(b => {
+      const kb = lpBrandKey(b);
+      return kb === rawKey || rawKey.startsWith(kb) || kb.startsWith(rawKey);
+    });
+    return lpCanonicalBrand(known || rawBrand);
+  }
+
+  const hay = lpCanonicalBrand(`${p?.brand || ''} ${p?.model || ''} ${p?.size || ''}`);
+  const hayKey = lpBrandKey(hay);
+
+  const found = LP_KNOWN_BRANDS.find(b => {
+    const kb = lpBrandKey(b);
+    return hayKey.includes(kb);
+  });
+
+  return lpCanonicalBrand(found || rawBrand || '');
+}
+
 function getBrands() {
-  return [...new Set(
-    getCategoryProducts()
-      .map(p => String(p.brand || '').trim())
-      .filter(b => b && !/^(?:pneu|pneus)$/i.test(b) && !/^pneus\s*tire$/i.test(b))
-  )];
+  const byKey = new Map();
+  getCategoryProducts().forEach(p => {
+    const b = lpResolvedBrand(p);
+    const key = lpBrandKey(b);
+    if (b && key && !byKey.has(key)) byKey.set(key, b);
+  });
+  return [...byKey.values()].sort((a,b) => a.localeCompare(b, 'pt-BR'));
 }
 function getApps() { return [...new Set(getCategoryProducts().map(p => p.app).filter(Boolean))]; }
 
@@ -2413,14 +2477,14 @@ function getFiltered() {
       (String(p.size || '').match(/R(\d{2})/i)?.[1] || '')
     ).trim();
     const matchAro = aroFilter === "Todos" || productAro === aroFilter;
-    const matchBrand = brandFilter === "Todas" || p.brand === brandFilter;
+    const matchBrand = brandFilter === "Todas" || lpBrandKey(lpResolvedBrand(p)) === lpBrandKey(brandFilter);
     const matchApp = appFilter === "Todas" || p.app === appFilter;
     const q = query.trim().toLowerCase();
     const matchQuery =
       q === "" ||
       String(p.size || "").toLowerCase().includes(q) ||
       String(p.model || "").toLowerCase().includes(q) ||
-      String(p.brand || "").toLowerCase().includes(q) ||
+      String(lpResolvedBrand(p) || "").toLowerCase().includes(q) ||
       productAro.toLowerCase().includes(q);
     return matchAro && matchBrand && matchApp && matchQuery;
   });
@@ -2705,7 +2769,12 @@ function renderFilters() {
   appWrap.innerHTML = apps.map(a => `<button class="filter-opt ${a === appFilter ? 'active' : ''}" data-app="${a}">${a}</button>`).join('');
 
   aroWrap.querySelectorAll('button').forEach(btn => btn.addEventListener('click', () => { aroFilter = btn.dataset.aro; render(); }));
-  brandWrap.querySelectorAll('button').forEach(btn => btn.addEventListener('click', () => { brandFilter = btn.dataset.brand; render(); }));
+  brandWrap.querySelectorAll('button').forEach(btn => btn.addEventListener('click', () => {
+    brandFilter = btn.dataset.brand;
+    aroFilter = "Todos";
+    appFilter = "Todas";
+    render();
+  }));
   appWrap.querySelectorAll('button').forEach(btn => btn.addEventListener('click', () => { appFilter = btn.dataset.app; render(); }));
   const sortSelect = document.getElementById('priceSort');
   if (sortSelect) {
@@ -2761,7 +2830,8 @@ function renderGrid() {
 
   filtered.forEach(p => {
     const sharedCategoryImage = categoryImages[p.categoria || 'Pneu'] || ((p.categoria || 'Pneu') === 'Pneu' ? DEFAULT_TIRE_IMAGE : '');
-    const sharedBrandImage = brandImages[lpBrandImageKey(p.brand)] || '';
+    const resolvedBrand = lpResolvedBrand(p);
+    const sharedBrandImage = brandImages[lpBrandImageKey(resolvedBrand)] || '';
     const displayImage = p.image || sharedBrandImage || sharedCategoryImage || '';
     const visual = displayImage
       ? `<img src="${displayImage}" alt="${p.brand} ${p.model}" class="card-photo" data-shared-category="${sharedCategoryImage ? '1' : '0'}" onerror="if(!this.dataset.lpFallback && (this.closest('.product-card') || true)){this.dataset.lpFallback='1';this.src=window.LP_DEFAULT_TIRE_IMAGE;}else{this.style.display='none';this.nextElementSibling.style.display='flex';}"><div class="tire-ring" style="display:none;"><div class="tire-ring-inner"></div></div>`
@@ -2772,12 +2842,12 @@ function renderGrid() {
       ${imageEditMode ? `<div class="image-select-check" aria-hidden="true">${selectedImageProductIds.has(String(p.id)) ? '✓' : '+'}</div>` : ''}
       <button class="card-clickable" data-select="${p.id}">
         <div class="card-visual">
-          <div class="card-brand-badge">${lpFirstDescriptionWord(p)}</div>
+          <div class="card-brand-badge">${resolvedBrand || lpFirstDescriptionWord(p)}</div>
           ${visual}
           ${tireStampHtml(p.size, p.load)}
         </div>
         <div class="card-body">
-          <div class="card-brand">${p.brand || lpFirstDescriptionWord(p) || ''}</div>
+          <div class="card-brand">${resolvedBrand || lpFirstDescriptionWord(p) || ''}</div>
           <div class="card-size">${lpCleanTireSize(p.size)}</div>
           <div class="card-bottom"><div class="card-price">${formatBRL(p.price)}<span class="per-unit">/un</span></div></div>
           <div class="card-stock">${p.stock > 0 ? p.stock + " em estoque" : "Consultar disponibilidade"}</div>
@@ -2902,13 +2972,7 @@ function removeProductImageBackground(img) {
 
 
 function lpBrandImageKey(value) {
-  return String(value || '')
-    .trim()
-    .toUpperCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^A-Z0-9]+/g, '_')
-    .replace(/^_+|_+$/g, '');
+  return lpBrandKey(value);
 }
 
 function lpFirstDescriptionWord(product) {
@@ -3023,7 +3087,7 @@ async function applySelectedProductImage() {
 
   const ids = [...selectedImageProductIds];
   const selectedProducts = products.filter(p => selectedImageProductIds.has(String(p.id)));
-  const brands = [...new Set(selectedProducts.map(p => String(p.brand || '').trim()).filter(Boolean))];
+  const brands = [...new Set(selectedProducts.map(p => lpResolvedBrand(p)).filter(Boolean))];
 
   const btn = document.getElementById('imageManagerApplyBtn');
   const previous = btn?.textContent || 'Aplicar aos selecionados';
@@ -3089,6 +3153,15 @@ async function applySelectedProductImage() {
     updateImageManagerToolbar();
   }
 }
+
+
+document.getElementById('imageManagerSelectVisibleBtn')?.addEventListener('click', () => {
+  if (!imageEditMode) return;
+  const visible = getFiltered();
+  visible.forEach(p => selectedImageProductIds.add(String(p.id)));
+  updateImageManagerToolbar();
+  renderGrid();
+});
 
 document.getElementById('imageManagerChooseBtn')?.addEventListener('click', () => {
   const input = document.getElementById('imageManagerFileInput');
@@ -3605,7 +3678,7 @@ function renderDetail() {
   const p = selectedProduct;
   document.getElementById('detailTitle').textContent = `${p.brand} ${p.model}`;
   const visual = document.getElementById('detailVisual');
-  const displayImage = p.image || brandImages[lpBrandImageKey(p.brand)] || categoryImages[p.categoria || 'Pneu'] || '';
+  const displayImage = p.image || brandImages[lpBrandImageKey(lpResolvedBrand(p))] || categoryImages[p.categoria || 'Pneu'] || '';
   visual.innerHTML = displayImage
     ? `<img src="${displayImage}" alt="${p.brand} ${p.model}" class="detail-photo" onerror="this.style.display='none';">${tireStampHtml(p.size, p.load)}`
     : `<div class="tire-ring detail-ring"><div class="tire-ring-inner"></div></div>${tireStampHtml(p.size, p.load)}`;
