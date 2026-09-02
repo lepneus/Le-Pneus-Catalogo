@@ -1809,7 +1809,19 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
     hideOverlayAnd(loginModal);
   } catch (e) {
     console.error('Falha no login:', e);
-    loginError.textContent = 'E-mail ou senha inválidos. Confira os dados e tente novamente.';
+    const code = String(e?.code || '');
+    const messages = {
+      'auth/invalid-credential': 'E-mail ou senha incorretos. Confira os dados cadastrados no Firebase.',
+      'auth/invalid-login-credentials': 'E-mail ou senha incorretos. Confira os dados cadastrados no Firebase.',
+      'auth/user-not-found': 'Esse e-mail não está cadastrado no Firebase Authentication.',
+      'auth/wrong-password': 'A senha informada está incorreta.',
+      'auth/too-many-requests': 'Muitas tentativas. Aguarde alguns minutos e tente novamente.',
+      'auth/network-request-failed': 'Falha de conexão com o Firebase. Verifique a internet e tente novamente.',
+      'auth/operation-not-allowed': 'O login por E-mail/senha não está habilitado no Firebase.',
+      'auth/invalid-api-key': 'A chave do Firebase usada pelo site está inválida.',
+      'auth/app-not-authorized': 'Este domínio não está autorizado no Firebase.'
+    };
+    loginError.textContent = messages[code] || `Não foi possível entrar (${code || 'erro desconhecido'}). Veja o Console (F12) para o erro completo.`;
     loginError.style.display = 'block';
   } finally {
     loginSubmitBtn.disabled = false;
