@@ -1481,6 +1481,52 @@ body:not(.lp-intro-ready) .lp-intro-sweep{animation-play-state:paused!important;
 }
 </style>
 
+
+<style id="lp-admin-mobile-critical-fix">
+/* ===== Correções críticas: painel ADM + intro mobile ===== */
+.admin-tools-inner{position:relative!important;}
+.admin-tools.collapsed{opacity:1!important;pointer-events:auto!important;}
+.admin-tools.collapsed .admin-panel-collapse{
+  position:absolute!important;
+  left:7px!important;
+  top:7px!important;
+  right:auto!important;
+  z-index:999!important;
+  display:grid!important;
+  place-items:center!important;
+  visibility:visible!important;
+  opacity:1!important;
+  pointer-events:auto!important;
+  background:#17191c!important;
+  border-color:rgba(239,31,47,.55)!important;
+  color:#fff!important;
+  box-shadow:0 8px 22px rgba(0,0,0,.38)!important;
+}
+.admin-tools.collapsed .admin-panel-head{min-height:46px!important;border-bottom:0!important;margin:0!important;padding:0!important;}
+.admin-tools.collapsed .admin-panel-head>div{display:none!important;}
+@media(min-width:761px){
+  .admin-tools.collapsed{transform:translateX(calc(100% - 52px))!important;}
+}
+@media(max-width:760px){
+  .admin-tools.collapsed{transform:translateX(calc(100% - 54px))!important;}
+}
+
+/* O fundo da intro não pode ficar atrás do próprio background preto do splash. */
+.lp-splash{background:#050607!important;isolation:isolate!important;}
+.lp-splash-photo{z-index:0!important;display:block!important;opacity:0;}
+.lp-splash-shade{z-index:1!important;}
+.lp-intro-light,.lp-intro-streaks{z-index:2!important;}
+.lp-splash-inner{position:relative!important;z-index:4!important;}
+.lp-intro-sweep{z-index:6!important;}
+
+/* No celular, garante que a intro ocupe a tela e que conteúdo/textos apareçam. */
+@media(max-width:820px){
+  .lp-splash{position:fixed!important;inset:0!important;width:100%!important;height:100%!important;min-height:100%!important;}
+  .lp-splash-photo{inset:-5%!important;background-size:cover!important;background-position:center!important;}
+  .lp-splash-inner{width:min(94vw,680px)!important;padding:0 16px!important;}
+}
+</style>
+
 </head>
 <body>
 <div class="lp-splash" aria-hidden="true">
@@ -1562,7 +1608,7 @@ body:not(.lp-intro-ready) .lp-intro-sweep{animation-play-state:paused!important;
 <div class="category-tabs" id="categoryTabs">
   <button class="category-tab active" data-category="Pneu">Pneus de carro</button>
   <button class="category-tab" data-category="Pneu de moto">Pneus de moto</button>
-  <button class="category-tab" data-category="Acessórios">Acessórios</button>
+  <button class="category-tab" data-category="Acessórios">Câmaras de ar</button>
 </div>
 
 <aside class="admin-tools" id="adminTools" aria-label="Painel administrativo">
@@ -1618,7 +1664,7 @@ body:not(.lp-intro-ready) .lp-intro-sweep{animation-play-state:paused!important;
     <div class="admin-stock-tabs">
       <div class="admin-stock-tab"><span>🚗 Pneus de carro</span><strong id="adminCountCar">0</strong></div>
       <div class="admin-stock-tab"><span>🏍️ Pneus de moto</span><strong id="adminCountMoto">0</strong></div>
-      <div class="admin-stock-tab"><span>🔧 Acessórios</span><strong id="adminCountAccessories">0</strong></div>
+      <div class="admin-stock-tab"><span>⭕ Câmaras de ar</span><strong id="adminCountAccessories">0</strong></div>
       <div class="admin-stock-tab total"><span>🛞 Total de pneus</span><strong id="adminCountTires">0</strong></div>
     
 </div>
@@ -1745,7 +1791,7 @@ body:not(.lp-intro-ready) .lp-intro-sweep{animation-play-state:paused!important;
       <select id="f_categoria" style="background: var(--asphalt); border: 1px solid var(--line); border-radius: 4px; padding: 9px 10px; color: var(--chalk); font-family: 'Inter'; font-size: 13px;">
         <option value="Pneu">Pneu de carro</option>
         <option value="Pneu de moto">Pneu de moto</option>
-        <option value="Acessórios">Acessório</option>
+        <option value="Acessórios">Câmara de ar</option>
       </select>
     </label>
     <div class="form-row">
@@ -1987,7 +2033,7 @@ async function importSpreadsheet(file) {
     } else if (categoryFilter === 'Acessórios') {
       sheetNames = workbook.SheetNames.filter(name => String(name).trim());
       if (!sheetNames.length) {
-        alert('Não encontrei nenhuma aba na planilha de acessórios.');
+        alert('Não encontrei nenhuma aba de câmaras de ar na planilha.');
         return;
       }
     }
@@ -2248,7 +2294,7 @@ function renderCategoryImageAdmin() {
   if (!wrap) return;
   if (!adminMode) { wrap.style.display = 'none'; wrap.innerHTML = ''; return; }
 
-  const label = categoryFilter === 'Pneu' ? 'Pneus de carro' : categoryFilter === 'Pneu de moto' ? 'Pneus de moto' : 'Acessórios';
+  const label = categoryFilter === 'Pneu' ? 'Pneus de carro' : categoryFilter === 'Pneu de moto' ? 'Pneus de moto' : 'Câmaras de ar';
   const hasImage = !!categoryImages[categoryFilter];
   wrap.style.display = 'block';
   wrap.innerHTML = `
@@ -2516,7 +2562,7 @@ function renderGrid() {
     const pb = Number(String(b.price ?? 0).replace(',', '.')) || 0;
     return priceSort === 'asc' ? pa - pb : pb - pa;
   });
-  const itemLabel = categoryFilter === "Pneu" ? "pneu(s) de carro" : categoryFilter === "Pneu de moto" ? "pneu(s) de moto" : "acessório(s)";
+  const itemLabel = categoryFilter === "Pneu" ? "pneu(s) de carro" : categoryFilter === "Pneu de moto" ? "pneu(s) de moto" : "câmara(s) de ar";
   let html = `<div class="results-count"><span>${filtered.length} ${itemLabel} encontrado(s)</span>`;
 
   html += `</div>`;
@@ -3056,7 +3102,7 @@ async function deleteZeroStockByCategory() {
   const resumo = [
     counts.carro ? `${counts.carro} de carro` : '',
     counts.moto ? `${counts.moto} de moto` : '',
-    counts['acessórios'] ? `${counts['acessórios']} acessórios` : ''
+    counts['acessórios'] ? `${counts['acessórios']} câmaras de ar` : ''
   ].filter(Boolean).join(', ');
 
   if (!confirm(`Excluir TODOS os ${zeroStock.length} produtos sem estoque?\n\n${resumo}.\n\nEsta ação não pode ser desfeita.`)) return;
@@ -3080,7 +3126,7 @@ async function deleteZeroStockByCategory() {
 }
 
 async function deleteAllStock() {
-  if (!confirm('ATENÇÃO! Isso vai excluir TODOS os produtos do estoque (carro, moto e acessórios).\n\nTem certeza que deseja continuar?')) return;
+  if (!confirm('ATENÇÃO! Isso vai excluir TODOS os produtos do estoque (carro, moto e câmaras de ar).\n\nTem certeza que deseja continuar?')) return;
   if (!confirm('ÚLTIMA CONFIRMAÇÃO: todos os produtos serão apagados do Firebase e não poderão ser recuperados por este sistema. Continuar?')) return;
   try {
     const snap = await db.collection('produtos').get();
@@ -3389,20 +3435,20 @@ overlay.addEventListener('click', () => {
 
 /* ---- Init ---- */
 (async function bootLePneus(){
-  // Aplica um fundo local imediatamente; assim a intro nunca fica vazia no celular.
+  // Mostra a intro imediatamente. No celular ela não depende do Firebase ou da rede para começar.
   applySiteSettings();
-  render();
-  initOrders();
-
-  // Produtos começam a carregar em paralelo. O GET inicial já renderiza sem depender do realtime.
-  initProducts();
-
-  // Espera um pouco pelas imagens/configurações públicas antes de iniciar os 3 segundos da intro.
-  const configLoad = Promise.allSettled([loadCategoryImages(), loadSiteSettings()]);
-  const maxWait = new Promise(resolve => setTimeout(resolve, 1200));
-  await Promise.race([configLoad, maxWait]);
-
+  document.body.classList.add('lp-intro-ready');
   if (window.__lpStartIntro) window.__lpStartIntro();
+
+  // O catálogo continua inicializando em paralelo por baixo da animação.
+  try { render(); } catch (e) { console.error('Falha ao renderizar catálogo:', e); }
+  try { initOrders(); } catch (e) { console.warn('Pedidos indisponíveis:', e); }
+  try { initProducts(); } catch (e) { console.error('Falha ao iniciar produtos:', e); }
+
+  // Configurações e imagens públicas podem chegar depois sem travar a abertura.
+  Promise.allSettled([loadCategoryImages(), loadSiteSettings()]).then(() => {
+    try { applySiteSettings(); render(); } catch (e) { console.warn('Falha ao aplicar configurações:', e); }
+  });
 })();
 </script>
 
@@ -3460,5 +3506,22 @@ overlay.addEventListener('click', () => {
   setTimeout(syncIntroBg,250);
 })();
 </script>
+
+<script id="lp-intro-mobile-watchdog">
+(function(){
+  const splash = document.querySelector('.lp-splash');
+  if (!splash) return;
+  document.body.classList.add('lp-intro-ready');
+  // Mesmo se algum serviço externo falhar, a tela de abertura nunca fica presa.
+  window.setTimeout(function(){
+    if (!splash.classList.contains('done')) {
+      splash.classList.add('done');
+      document.body.classList.add('lp-intro-finished');
+      window.setTimeout(function(){ splash.style.display='none'; }, 800);
+    }
+  }, 3900);
+})();
+</script>
+
 </body>
 </html>
