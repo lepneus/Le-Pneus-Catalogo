@@ -1597,7 +1597,7 @@ body:not(.lp-intro-ready) .lp-intro-sweep{animation-play-state:paused!important;
 
 <style id="image-manager-style">
 /* Nova edição de imagens: painel ADM antigo removido da interface */
-#adminTools,.logo-admin-login,.admin-card-actions{display:none!important}
+#adminTools,.logo-admin-login,.admin-card-actions{}
 .image-manager-btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:44px;padding:10px 14px;border:1px solid rgba(239,31,47,.48);border-radius:12px;background:#11151a;color:#f4f4f4;font-weight:800;font-size:13px;cursor:pointer;transition:.2s ease}
 .image-manager-btn:hover,.image-manager-btn.active{border-color:#ef1f2f;background:#ef1f2f;color:#fff;box-shadow:0 10px 24px rgba(239,31,47,.18)}
 .header-filter-wrap{display:flex;align-items:center;gap:8px}
@@ -1687,6 +1687,52 @@ body.is-admin #selectTiresImageBtn,
 body.is-admin .bulk-image-btn,
 body.is-admin .select-tires-image-btn {
   display:inline-flex !important;
+}
+</style>
+
+
+<style id="lp-restore-admin-login">
+.logo-admin-login,
+#adminLoginBtn,
+.hero-admin-login,
+.admin-login,
+.admin-login-btn,
+[data-admin-login],
+[data-open-admin],
+[data-role="admin-login"] {
+  display: inline-flex !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+}
+</style>
+
+
+
+
+
+<style id="lp-logo-admin-menu-style">
+#lpAdminMiniMenu{
+  position:absolute;
+  z-index:99999;
+  display:none;
+  padding:8px;
+  min-width:145px;
+  border:1px solid rgba(255,255,255,.13);
+  border-radius:12px;
+  background:#101115;
+  box-shadow:0 12px 30px rgba(0,0,0,.45);
+}
+#lpAdminMiniMenu.open{display:block}
+#lpAdminMiniMenu button{
+  width:100%;
+  min-height:40px;
+  border:1px solid rgba(255,45,55,.55);
+  border-radius:9px;
+  background:rgba(255,40,50,.08);
+  color:#ff3842;
+  font:800 13px/1 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  cursor:pointer;
 }
 </style>
 
@@ -3853,6 +3899,125 @@ overlay.addEventListener('click', () => {
       window.setTimeout(function(){ splash.style.display='none'; }, 650);
     }
   }, 5000);
+})();
+</script>
+
+
+<script id="lp-admin-login-fallback">
+(function () {
+  function openExistingAdminLogin() {
+    const candidates = [
+      document.querySelector('#adminLoginBtn'),
+      document.querySelector('.logo-admin-login'),
+      document.querySelector('.hero-admin-login'),
+      document.querySelector('[data-admin-login]'),
+      document.querySelector('[data-open-admin]')
+    ].filter(Boolean);
+
+    for (const el of candidates) {
+      if (el !== this && typeof el.click === 'function') {
+        el.click();
+        return true;
+      }
+    }
+
+    const modal = document.querySelector(
+      '#adminLoginModal, #loginAdminModal, .admin-login-modal, .admin-modal, [data-admin-modal]'
+    );
+    if (modal) {
+      modal.hidden = false;
+      modal.style.display = 'flex';
+      modal.classList.add('open', 'show', 'active');
+      return true;
+    }
+    return false;
+  }
+
+  const logoCandidates = [
+    document.querySelector('.brand'),
+    document.querySelector('.logo'),
+    document.querySelector('.site-logo'),
+    document.querySelector('header img'),
+    document.querySelector('header .brand-name')
+  ].filter(Boolean);
+
+  logoCandidates.forEach(function (logo) {
+    if (logo.dataset.lpAdminBound) return;
+    logo.dataset.lpAdminBound = '1';
+    logo.style.cursor = 'pointer';
+    logo.addEventListener('click', function (ev) {
+      const ok = openExistingAdminLogin.call(logo);
+      if (ok) {
+        ev.preventDefault();
+        ev.stopPropagation();
+      }
+    });
+  });
+})();
+</script>
+
+
+
+
+
+<script id="lp-logo-admin-menu">
+(function(){
+  function getLogo(){
+    return document.querySelector('.brand, .site-logo, .logo, header .brand-name, header img');
+  }
+  function openRealAdminLogin(){
+    const candidates=[
+      document.querySelector('#adminLoginBtn'),
+      document.querySelector('.logo-admin-login'),
+      document.querySelector('.hero-admin-login'),
+      document.querySelector('[data-admin-login]'),
+      document.querySelector('[data-open-admin]')
+    ].filter(Boolean);
+    for(const el of candidates){
+      if(typeof el.click==='function'){ el.click(); return true; }
+    }
+    const modal=document.querySelector('#adminLoginModal,#loginAdminModal,.admin-login-modal,.admin-modal,[data-admin-modal]');
+    if(modal){
+      modal.hidden=false;
+      modal.style.display='flex';
+      modal.classList.add('open','show','active');
+      return true;
+    }
+    return false;
+  }
+
+  const logo=getLogo();
+  if(!logo) return;
+  const clickTarget = logo.tagName==='IMG' && logo.parentElement ? logo.parentElement : logo;
+  clickTarget.style.cursor='pointer';
+
+  const menu=document.createElement('div');
+  menu.id='lpAdminMiniMenu';
+  const enter=document.createElement('button');
+  enter.type='button';
+  enter.textContent='Entrar ADM';
+  menu.appendChild(enter);
+  document.body.appendChild(menu);
+
+  clickTarget.addEventListener('click',function(e){
+    e.preventDefault();
+    e.stopPropagation();
+    const r=clickTarget.getBoundingClientRect();
+    menu.style.left=Math.max(8, Math.min(r.left, window.innerWidth-160))+'px';
+    menu.style.top=(r.bottom+8+window.scrollY)+'px';
+    menu.classList.toggle('open');
+  });
+
+  enter.addEventListener('click',function(e){
+    e.preventDefault();
+    e.stopPropagation();
+    menu.classList.remove('open');
+    openRealAdminLogin();
+  });
+
+  document.addEventListener('click',function(e){
+    if(!menu.contains(e.target) && !clickTarget.contains(e.target)) menu.classList.remove('open');
+  });
 })();
 </script>
 
