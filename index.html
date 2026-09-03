@@ -2006,6 +2006,53 @@ html, body { max-width: 100%; overflow-x: hidden; }
 .lp-end-phone:active { transform: scale(.98); }
 </style>
 
+
+<style id="lp-category-sticky-fix">
+@media (max-width: 760px) {
+  /* A barra Carro / Moto / Câmaras acompanha a rolagem */
+  .category-tabs {
+    position: sticky !important;
+    top: 0 !important;
+    z-index: 999 !important;
+    display: flex !important;
+    width: 100% !important;
+    overflow-x: auto !important;
+    gap: 8px !important;
+    padding: 9px 10px !important;
+    margin: 0 !important;
+    background: rgba(7,9,12,.98) !important;
+    border-bottom: 1px solid rgba(255,255,255,.10) !important;
+    box-shadow: 0 8px 20px rgba(0,0,0,.25);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+
+  .category-tab {
+    flex: 1 0 auto !important;
+    min-width: max-content !important;
+  }
+
+  /* Evita que algum container pai impeça o sticky */
+  .catalog-section,
+  .shop-body,
+  main {
+    overflow: visible !important;
+  }
+}
+</style>
+
+
+<style id="lp-category-anchor-fix">
+.lp-category-anchor {
+  display: block;
+  position: relative;
+  width: 0;
+  height: 0;
+  visibility: hidden;
+  scroll-margin-top: 120px;
+}
+</style>
+
 </head>
 <body>
 <div class="lp-splash lp-stable-intro" aria-hidden="true">
@@ -2165,6 +2212,10 @@ html, body { max-width: 100%; overflow-x: hidden; }
 
 
 <div class="shop-body">
+
+  <span id="pneus-carro" class="lp-category-anchor" aria-hidden="true"></span>
+  <span id="pneus-moto" class="lp-category-anchor" aria-hidden="true"></span>
+  <span id="camaras-ar" class="lp-category-anchor" aria-hidden="true"></span>
   <main class="product-grid" id="productGrid"></main>
 </div>
 
@@ -4395,6 +4446,29 @@ overlay.addEventListener('click', () => {
 
 
 
+
+
+<script id="lp-category-sticky-js">
+(function(){
+  const tabs = document.getElementById('categoryTabs');
+  if (!tabs) return;
+
+  function syncStickyBar(){
+    if (window.innerWidth <= 760) {
+      tabs.style.position = 'sticky';
+      tabs.style.top = '0px';
+      tabs.style.zIndex = '999';
+    } else {
+      tabs.style.position = '';
+      tabs.style.top = '';
+      tabs.style.zIndex = '';
+    }
+  }
+
+  syncStickyBar();
+  window.addEventListener('resize', syncStickyBar, {passive:true});
+})();
+</script>
 
 </body>
 </html>
