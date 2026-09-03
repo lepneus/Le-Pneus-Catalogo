@@ -1895,6 +1895,117 @@ html, body { max-width: 100%; overflow-x: hidden; }
 }
 </style>
 
+
+
+
+
+<style id="lp-mobile-two-columns-end-message">
+@media (max-width: 760px) {
+  #productGrid {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 10px !important;
+    padding: 14px 10px 34px !important;
+    width: 100% !important;
+  }
+
+  #productGrid > .results-count,
+  #productGrid > .empty-state,
+  #productGrid > .lp-category-end {
+    grid-column: 1 / -1 !important;
+  }
+
+  .product-card {
+    min-width: 0 !important;
+    width: 100% !important;
+  }
+
+  .card-photo {
+    width: 100% !important;
+    height: 105px !important;
+    object-fit: contain !important;
+  }
+
+  .card-size {
+    font-size: 16px !important;
+  }
+
+  .card-price {
+    font-size: 17px !important;
+  }
+
+  .lp-category-end {
+    margin-top: 12px;
+    padding: 26px 16px 30px;
+    text-align: center;
+    border-top: 1px solid rgba(255,255,255,.10);
+    border-radius: 16px;
+    background:
+      radial-gradient(circle at 50% 0%, rgba(225,32,45,.10), transparent 58%),
+      linear-gradient(180deg, rgba(255,255,255,.025), rgba(255,255,255,0));
+  }
+
+  .lp-end-logo {
+    font-size: 24px;
+    font-weight: 900;
+    margin-bottom: 8px;
+  }
+
+  .lp-category-end strong {
+    display: block;
+    font-size: 15px;
+    line-height: 1.3;
+    margin-bottom: 7px;
+  }
+
+  .lp-category-end span {
+    display: block;
+    max-width: 330px;
+    margin: 0 auto;
+    font-size: 12px;
+    line-height: 1.5;
+    opacity: .72;
+  }
+}
+
+@media (max-width: 330px) {
+  #productGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 6px !important;
+    padding-left: 6px !important;
+    padding-right: 6px !important;
+  }
+
+  .card-body {
+    padding-left: 7px !important;
+    padding-right: 7px !important;
+  }
+
+  .card-size { font-size: 14px !important; }
+  .card-price { font-size: 15px !important; }
+}
+</style>
+
+
+<style id="lp-end-phone-style">
+.lp-end-phone {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 14px;
+  padding: 10px 16px;
+  min-height: 42px;
+  border-radius: 999px;
+  text-decoration: none;
+  font-weight: 800;
+  font-size: 14px;
+  color: inherit;
+  border: 1px solid rgba(255,255,255,.14);
+  background: rgba(255,255,255,.055);
+}
+.lp-end-phone:active { transform: scale(.98); }
+</style>
+
 </head>
 <body>
 <div class="lp-splash lp-stable-intro" aria-hidden="true">
@@ -2706,6 +2817,38 @@ function getAros() {
     .sort((a, b) => Number(a) - Number(b));
 }
 
+function lpFilterProductsForCategory(category) {
+  const target = normalizeCategoryValue(category);
+  return products.filter(p => {
+    const cat = normalizeCategoryValue(p.categoria || 'Pneu');
+    const stock = Number(String(p.stock ?? 0).replace(',', '.'));
+    if (cat !== target || !Number.isFinite(stock) || stock <= 0) return false;
+
+    const productAro = String(
+      p.aro ||
+      (String(p.size || '').match(/(?:\/|-)\s*(\d{2})\s*$/i)?.[1] || '') ||
+      (String(p.size || '').match(/R(\d{2})/i)?.[1] || '')
+    ).trim();
+
+    // No celular, filtros de aro/marca/aplicação afetam somente a categoria
+    // atualmente selecionada. As demais continuam visíveis para rolagem contínua.
+    const isCurrentCategory = normalizeCategoryValue(categoryFilter) === target;
+    const matchAro = !isCurrentCategory || aroFilter === "Todos" || productAro === aroFilter;
+    const matchBrand = !isCurrentCategory || brandFilter === "Todas" || lpBrandKey(lpResolvedBrand(p)) === lpBrandKey(brandFilter);
+    const matchApp = !isCurrentCategory || appFilter === "Todas" || p.app === appFilter;
+
+    const q = query.trim().toLowerCase();
+    const matchQuery =
+      q === "" ||
+      String(p.size || "").toLowerCase().includes(q) ||
+      String(p.model || "").toLowerCase().includes(q) ||
+      String(lpResolvedBrand(p) || "").toLowerCase().includes(q) ||
+      productAro.toLowerCase().includes(q);
+
+    return matchAro && matchBrand && matchApp && matchQuery;
+  });
+}
+
 function getFiltered() {
   return getCategoryProducts().filter(p => {
     const productAro = String(
@@ -3049,31 +3192,16 @@ function tireStampHtml(size, load) {
   return `<div class="tire-stamp"><span class="tire-stamp-size">${lpCleanTireSize(size)}</span></div>`;
 }
 
-function renderGrid() {
-  const grid = document.getElementById('productGrid');
-  const filtered = getFiltered().sort((a, b) => {
-    const pa = Number(String(a.price ?? 0).replace(',', '.')) || 0;
-    const pb = Number(String(b.price ?? 0).replace(',', '.')) || 0;
-    return priceSort === 'asc' ? pa - pb : pb - pa;
-  });
-  const itemLabel = categoryFilter === "Pneu" ? "pneu(s) de carro" : categoryFilter === "Pneu de moto" ? "pneu(s) de moto" : "câmara(s) de ar";
-  let html = `<div class="results-count"><span>${filtered.length} ${itemLabel} encontrado(s)</span>`;
+function lpProductCardHtml(p) {
+  const sharedCategoryImage = categoryImages[p.categoria || 'Pneu'] || ((p.categoria || 'Pneu') === 'Pneu' ? DEFAULT_TIRE_IMAGE : '');
+  const resolvedBrand = lpResolvedBrand(p);
+  const sharedBrandImage = brandImages[lpBrandImageKey(resolvedBrand)] || '';
+  const displayImage = p.image || sharedBrandImage || sharedCategoryImage || '';
+  const visual = displayImage
+    ? `<img src="${displayImage}" alt="${p.brand} ${p.model}" class="card-photo" data-shared-category="${sharedCategoryImage ? '1' : '0'}" onerror="if(!this.dataset.lpFallback && (this.closest('.product-card') || true)){this.dataset.lpFallback='1';this.src=window.LP_DEFAULT_TIRE_IMAGE;}else{this.style.display='none';this.nextElementSibling.style.display='flex';}"><div class="tire-ring" style="display:none;"><div class="tire-ring-inner"></div></div>`
+    : `<div class="tire-ring"><div class="tire-ring-inner"></div></div>`;
 
-  html += `</div>`;
-
-  if (filtered.length === 0) {
-    html += `<div class="empty-state"><strong>Nenhum item encontrado</strong>Tente outra medida, marca ou termo de busca.</div>`;
-  }
-
-  filtered.forEach(p => {
-    const sharedCategoryImage = categoryImages[p.categoria || 'Pneu'] || ((p.categoria || 'Pneu') === 'Pneu' ? DEFAULT_TIRE_IMAGE : '');
-    const resolvedBrand = lpResolvedBrand(p);
-    const sharedBrandImage = brandImages[lpBrandImageKey(resolvedBrand)] || '';
-    const displayImage = p.image || sharedBrandImage || sharedCategoryImage || '';
-    const visual = displayImage
-      ? `<img src="${displayImage}" alt="${p.brand} ${p.model}" class="card-photo" data-shared-category="${sharedCategoryImage ? '1' : '0'}" onerror="if(!this.dataset.lpFallback && (this.closest('.product-card') || true)){this.dataset.lpFallback='1';this.src=window.LP_DEFAULT_TIRE_IMAGE;}else{this.style.display='none';this.nextElementSibling.style.display='flex';}"><div class="tire-ring" style="display:none;"><div class="tire-ring-inner"></div></div>`
-      : `<div class="tire-ring"><div class="tire-ring-inner"></div></div>`;
-    html += `
+  return `
     <div class="product-card lp-reveal ${imageEditMode && selectedImageProductIds.has(String(p.id)) ? 'image-selected' : ''}">
       ${p.promo ? '<div class="promo-flag">OFERTA</div>' : ''}
       ${imageEditMode ? `<div class="image-select-check" aria-hidden="true">${selectedImageProductIds.has(String(p.id)) ? '✓' : '+'}</div>` : ''}
@@ -3091,12 +3219,17 @@ function renderGrid() {
         </div>
       </a>
     </div>`;
+}
+
+function lpSortProducts(list) {
+  return list.sort((a, b) => {
+    const pa = Number(String(a.price ?? 0).replace(',', '.')) || 0;
+    const pb = Number(String(b.price ?? 0).replace(',', '.')) || 0;
+    return priceSort === 'asc' ? pa - pb : pb - pa;
   });
+}
 
-  grid.innerHTML = html;
-  if (window.__lpRevealVisible) window.__lpRevealVisible(grid);
-  enhanceProductImages(grid);
-
+function lpBindGridActions(grid) {
   grid.querySelectorAll('[data-select]').forEach(btn => btn.addEventListener('click', (e) => {
     e.preventDefault();
     const id = btn.dataset.select;
@@ -3109,8 +3242,60 @@ function renderGrid() {
   }));
   grid.querySelectorAll('[data-edit]').forEach(btn => btn.addEventListener('click', (e) => { e.stopPropagation(); openForm(btn.dataset.edit); }));
   grid.querySelectorAll('[data-delete]').forEach(btn => btn.addEventListener('click', (e) => { e.stopPropagation(); deleteProduct(btn.dataset.delete); }));
-} 
+}
 
+function lpCategoryEndMessage() {
+  if (categoryFilter === 'Pneu') {
+    return `
+      <div class="lp-category-end">
+        <div class="lp-end-logo">LePneus</div>
+        <strong>Você chegou ao fim dos pneus de carro.</strong>
+        <span>Não encontrou a medida que procura? Fale com a LePneus e consulte outras opções.</span>
+        <a class="lp-end-phone" href="https://wa.me/5545998315037" target="_blank" rel="noopener noreferrer">📱 (45) 99831-5037</a>
+      </div>`;
+  }
+  if (categoryFilter === 'Pneu de moto') {
+    return `
+      <div class="lp-category-end">
+        <div class="lp-end-logo">LePneus</div>
+        <strong>Você chegou ao fim dos pneus de moto.</strong>
+        <span>Não encontrou o que procura? Fale com a LePneus e consulte outras opções.</span>
+        <a class="lp-end-phone" href="https://wa.me/5545998315037" target="_blank" rel="noopener noreferrer">📱 (45) 99831-5037</a>
+      </div>`;
+  }
+  return `
+    <div class="lp-category-end">
+      <div class="lp-end-logo">LePneus</div>
+      <strong>Você chegou ao fim das câmaras de ar.</strong>
+      <span>Precisa de outra medida? Fale com a LePneus e consulte a disponibilidade.</span>
+        <a class="lp-end-phone" href="https://wa.me/5545998315037" target="_blank" rel="noopener noreferrer">📱 (45) 99831-5037</a>
+    </div>`;
+}
+
+function renderGrid() {
+  const grid = document.getElementById('productGrid');
+  const filtered = lpSortProducts(getFiltered());
+  const itemLabel = categoryFilter === "Pneu"
+    ? "pneu(s) de carro"
+    : categoryFilter === "Pneu de moto"
+      ? "pneu(s) de moto"
+      : "câmara(s) de ar";
+
+  let html = `<div class="results-count"><span>${filtered.length} ${itemLabel} encontrado(s)</span></div>`;
+
+  if (filtered.length === 0) {
+    html += `<div class="empty-state"><strong>Nenhum item encontrado</strong>Tente outra medida, marca ou termo de busca.</div>`;
+  } else {
+    html += filtered.map(lpProductCardHtml).join('');
+    html += lpCategoryEndMessage();
+  }
+
+  grid.innerHTML = html;
+
+  if (window.__lpRevealVisible) window.__lpRevealVisible(grid);
+  enhanceProductImages(grid);
+  lpBindGridActions(grid);
+}
 
 /* ---- Imagens de produtos: remoção automática do fundo ---- */
 function enhanceProductImages(root=document) {
@@ -3951,7 +4136,22 @@ document.getElementById('whatsappBtn').addEventListener('click', async () => {
     `Preço unitário: ${formatBRL(p.price)}`,
     `Total estimado: ${formatBRL(p.price * qty)}`,
   ];
-  const text = lines.join('\n');
+  const message = lines.join('\n');
+  const whatsappUrl = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`;
+
+  // Abre o WhatsApp em NOVA aba/janela ainda dentro do clique do usuário.
+  const opened = window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
+  if (!opened) {
+    const a = document.createElement('a');
+    a.href = whatsappUrl;
+    a.target = '_blank';
+    a.rel = 'noopener noreferrer';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  }
+
+  // O catálogo permanece aberto na aba atual.
   try {
     await db.collection('pedidos').add({
       produtoId: p.id,
@@ -3968,7 +4168,6 @@ document.getElementById('whatsappBtn').addEventListener('click', async () => {
   } catch (e) {
     console.error('Não foi possível registrar o pedido:', e);
   }
-  window.location.href = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(text)}`;
 });
 
 
@@ -4036,6 +4235,16 @@ document.getElementById('whatsappBtn').addEventListener('click', async () => {
   };
 })();
 
+
+let lpLastMobileContinuous = window.matchMedia('(max-width: 760px)').matches;
+window.addEventListener('resize', () => {
+  const nowMobile = window.matchMedia('(max-width: 760px)').matches;
+  if (nowMobile !== lpLastMobileContinuous) {
+    lpLastMobileContinuous = nowMobile;
+    try { render(); } catch (_) {}
+  }
+});
+
 /* ---- Busca ---- */
 document.getElementById('searchInput').addEventListener('input', (e) => { query = e.target.value; renderGrid(); });
 const headerFiltersBtn = document.getElementById('headerFiltersBtn');
@@ -4057,16 +4266,22 @@ document.addEventListener('click', (e) => {
 document.querySelectorAll('.category-tab').forEach(btn => {
   btn.addEventListener('click', (e) => {
     e.preventDefault();
+
     categoryFilter = btn.dataset.category;
     brandFilter = "Todas";
     appFilter = "Todas";
     aroFilter = "Todos";
+
     document.querySelectorAll('.category-tab').forEach(b => b.classList.toggle('active', b === btn));
     try { history.replaceState(null, '', btn.getAttribute('href') || '#catalogo'); } catch (_) {}
+
     render();
-    const grid = document.getElementById('productGrid');
-    if (grid && window.innerWidth <= 760) {
-      grid.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+    if (window.innerWidth <= 760) {
+      const grid = document.getElementById('productGrid');
+      if (grid) {
+        requestAnimationFrame(() => grid.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+      }
     }
   });
 });
