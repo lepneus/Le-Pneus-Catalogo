@@ -2053,6 +2053,64 @@ html, body { max-width: 100%; overflow-x: hidden; }
 }
 </style>
 
+
+<style id="lp-category-follow-scroll-final">
+#lpCategoryTabsPlaceholder{display:none;height:0}
+@media (max-width:760px){
+  .category-tabs.lp-tabs-following{
+    position:fixed!important;
+    top:var(--lp-header-height,58px)!important;
+    left:0!important;
+    right:0!important;
+    width:100%!important;
+    max-width:none!important;
+    margin:0!important;
+    z-index:998!important;
+    background:rgba(7,9,12,.985)!important;
+    border-bottom:1px solid rgba(255,255,255,.10)!important;
+    box-shadow:0 8px 22px rgba(0,0,0,.30)!important;
+    backdrop-filter:blur(14px)!important;
+    -webkit-backdrop-filter:blur(14px)!important;
+  }
+  #lpCategoryTabsPlaceholder.lp-active{
+    display:block!important;
+  }
+}
+</style>
+
+
+<style id="lp-category-follow-scroll-verified">
+@media (max-width:760px){
+  #categoryTabs.category-tabs{
+    position:relative!important;
+    top:auto!important;
+    left:auto!important;
+    right:auto!important;
+    z-index:30!important;
+  }
+
+  #categoryTabs.category-tabs.lp-tabs-following{
+    position:fixed!important;
+    top:var(--lp-header-height,58px)!important;
+    left:0!important;
+    right:0!important;
+    width:100%!important;
+    max-width:none!important;
+    margin:0!important;
+    z-index:999!important;
+    background:rgba(7,9,12,.99)!important;
+    border-bottom:1px solid rgba(255,255,255,.12)!important;
+    box-shadow:0 9px 24px rgba(0,0,0,.34)!important;
+    backdrop-filter:blur(14px)!important;
+    -webkit-backdrop-filter:blur(14px)!important;
+  }
+
+  #lpCategoryTabsPlaceholder.lp-active{
+    display:block!important;
+  }
+}
+</style>
+
 </head>
 <body>
 <div class="lp-splash lp-stable-intro" aria-hidden="true">
@@ -2147,6 +2205,7 @@ html, body { max-width: 100%; overflow-x: hidden; }
   <a class="category-tab" data-category="Pneu de moto" href="#pneus-moto">Pneus de moto</a>
   <a class="category-tab" data-category="Acessórios" href="#camaras-ar">Câmaras de ar</a>
 </div>
+<div id="lpCategoryTabsPlaceholder" aria-hidden="true"></div>
 
 <aside class="admin-tools" id="adminTools" aria-label="Painel administrativo">
   <div class="admin-tools-inner">
@@ -4448,25 +4507,88 @@ overlay.addEventListener('click', () => {
 
 
 
-<script id="lp-category-sticky-js">
+
+
+
+<script id="lp-category-follow-scroll-final-js">
 (function(){
   const tabs = document.getElementById('categoryTabs');
-  if (!tabs) return;
+  const placeholder = document.getElementById('lpCategoryTabsPlaceholder');
+  if(!tabs || !placeholder) return;
 
-  function syncStickyBar(){
-    if (window.innerWidth <= 760) {
-      tabs.style.position = 'sticky';
-      tabs.style.top = '0px';
-      tabs.style.zIndex = '999';
-    } else {
-      tabs.style.position = '';
-      tabs.style.top = '';
-      tabs.style.zIndex = '';
+  let originalTop = 0;
+  let ticking = false;
+
+  function isMobile(){
+    return window.matchMedia('(max-width:760px)').matches;
+  }
+
+  function measure(){
+    if(!isMobile()){
+      tabs.classList.remove('lp-tabs-following');
+      placeholder.classList.remove('lp-active');
+      placeholder.style.height = '0px';
+      return;
+    }
+
+    const wasFixed = tabs.classList.contains('lp-tabs-following');
+    if(wasFixed) tabs.classList.remove('lp-tabs-following');
+
+    placeholder.classList.remove('lp-active');
+    placeholder.style.height = '0px';
+
+    originalTop = tabs.getBoundingClientRect().top + window.scrollY;
+
+    if(wasFixed) update();
+  }
+
+  function update(){
+    ticking = false;
+
+    if(!isMobile()){
+      tabs.classList.remove('lp-tabs-following');
+      placeholder.classList.remove('lp-active');
+      placeholder.style.height = '0px';
+      return;
+    }
+
+    const header = document.querySelector('.shop-header');
+    const headerHeight = header ? header.offsetHeight : 0;
+    document.documentElement.style.setProperty('--lp-header-height', headerHeight + 'px');
+
+    const shouldFollow = window.scrollY + headerHeight >= originalTop;
+
+    if(shouldFollow){
+      placeholder.style.height = tabs.offsetHeight + 'px';
+      placeholder.classList.add('lp-active');
+      tabs.classList.add('lp-tabs-following');
+    }else{
+      tabs.classList.remove('lp-tabs-following');
+      placeholder.classList.remove('lp-active');
+      placeholder.style.height = '0px';
     }
   }
 
-  syncStickyBar();
-  window.addEventListener('resize', syncStickyBar, {passive:true});
+  function requestUpdate(){
+    if(!ticking){
+      ticking = true;
+      requestAnimationFrame(update);
+    }
+  }
+
+  measure();
+  update();
+
+  window.addEventListener('scroll', requestUpdate, {passive:true});
+  window.addEventListener('resize', function(){
+    measure();
+    update();
+  }, {passive:true});
+
+  window.addEventListener('load', function(){
+    setTimeout(function(){ measure(); update(); }, 100);
+    setTimeout(function(){ measure(); update(); }, 1200);
+  });
 })();
 </script>
 
