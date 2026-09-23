@@ -2477,6 +2477,31 @@ button:focus-visible,a:focus-visible{outline:2px solid #fff;outline-offset:3px}
  .lp-v71-qty{height:35px;max-width:112px}.lp-v71-add{height:42px;font-size:12px}
 }
 </style>
+
+<style id="lp-detail-fixes">
+/* Dialogs above navigation; header remains reachable when scrolling. */
+body.lp-v71 .overlay{z-index:2000!important}
+body.lp-v71 .modal{z-index:2010!important;max-height:calc(100dvh - 28px);overscroll-behavior:contain}
+body.lp-v71 #detailModal{width:min(460px,calc(100vw - 24px));background:#0b1015;color:#edf0f3;border:1px solid #303941;border-radius:18px;max-height:calc(100dvh - 24px);scroll-padding-top:80px}
+#detailModal .modal-head{position:sticky;top:0;z-index:10;background:#0b1015;padding:14px 16px;gap:12px;min-height:72px;border-bottom:1px solid #28313b}
+#detailModal .modal-head h2{font-size:19px;line-height:1.3;overflow-wrap:anywhere}
+#detailModal #closeDetailModal{display:grid;place-items:center;flex:0 0 44px;width:44px;height:44px;border:1px solid #3d4650;border-radius:50%;background:#18212a;color:#fff;cursor:pointer}
+#detailModal .detail-body{padding:18px}
+#detailModal .detail-visual{height:200px;min-height:0;background:#06090c;border-radius:12px;margin-bottom:18px}
+#detailModal .detail-photo{width:100%;height:100%;object-fit:contain}
+#detailModal .detail-row{font-size:14px;gap:14px}
+#detailModal .detail-row strong{text-align:right}
+#detailModal .qty-btn{min-width:44px;min-height:44px}
+#detailModal #detailAddCartBtn{min-height:52px;font-size:16px;gap:10px;border-radius:12px;width:100%}
+#detailModal .checkout-note{font-size:12px;line-height:1.5;margin-top:12px;color:#a6b1bd}
+body.lp-v71 .lp-v71-quality{position:relative!important;inset:auto!important;z-index:5;display:block;width:max-content;max-width:100%;margin:20px 0 0 auto!important;transform:none!important;text-align:right;line-height:1.15;padding:0 8px 0 0}
+@media(max-width:760px){
+ body.lp-v71 .hero{padding-bottom:20px!important}
+ body.lp-v71 .lp-v71-quality{font-size:17px;margin-top:18px!important;right:auto!important;bottom:auto!important}
+ body.lp-v71 .lp-v71-quality strong{font-size:24px}
+}
+@media(max-height:600px){#detailModal .detail-visual{height:130px}}
+</style>
 </head>
 <body class="lp-v71">
 <div class="lp-splash lp-stable-intro" aria-hidden="true">
@@ -2784,10 +2809,10 @@ button:focus-visible,a:focus-visible{outline:2px solid #fff;outline-offset:3px}
 </div>
 
 <!-- Modal: detalhe do produto -->
-<div class="modal detail-modal" id="detailModal">
+<div class="modal detail-modal" id="detailModal" role="dialog" aria-modal="true" aria-labelledby="detailTitle" aria-hidden="true">
   <div class="modal-head">
     <h2 id="detailTitle"></h2>
-    <button class="close-btn" id="closeDetailModal">✕</button>
+    <button type="button" class="close-btn" id="closeDetailModal" aria-label="Fechar detalhes do produto"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 6 12 12M18 6 6 18"/></svg></button>
   </div>
   <div class="detail-body">
     <div class="detail-visual" id="detailVisual"></div>
@@ -2804,11 +2829,8 @@ button:focus-visible,a:focus-visible{outline:2px solid #fff;outline-offset:3px}
         </div>
       </div>
       <div class="detail-total"><span>Total estimado</span><strong id="detailTotal"></strong></div>
-      <button class="whatsapp-btn" id="whatsappBtn">
-        <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12c0 1.85.5 3.58 1.35 5.07L2 22l5.06-1.33C8.51 21.5 10.2 22 12 22c5.52 0 10-4.48 10-10S17.52 2 12 2zm5.2 14.2c-.22.62-1.28 1.2-1.76 1.24-.45.05-1.02.07-1.65-.1-3.6-1.03-5.95-4.67-6.13-4.9-.18-.23-1.46-1.94-1.46-3.7 0-1.76.92-2.63 1.25-2.99.32-.35.7-.44.94-.44h.68c.22 0 .5-.04.78.6.28.65.94 2.24 1.02 2.4.08.16.14.35.02.58-.12.23-.18.37-.36.57-.18.2-.38.44-.54.6-.18.17-.37.36-.16.7.2.36.9 1.5 1.95 2.44 1.35 1.2 2.48 1.58 2.83 1.76.35.18.56.15.77-.09.2-.24.86-1 1.09-1.34.23-.35.46-.29.77-.17.31.12 1.98.94 2.32 1.11.34.17.56.26.64.4.08.15.08.85-.14 1.47z"/></svg>
-        Chamar no WhatsApp
-      </button>
-      <div class="checkout-note">Você será direcionado ao WhatsApp da loja para confirmar o pedido</div>
+      <button class="whatsapp-btn" id="detailAddCartBtn" type="button"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 4h3l2 11h10l3-8H7"/><circle cx="10" cy="20" r="1"/><circle cx="18" cy="20" r="1"/></svg> Adicionar ao carrinho</button>
+      <div class="checkout-note">Adicione ao carrinho e continue escolhendo. Finalize seu pedido pelo WhatsApp no carrinho.</div>
     </div>
   </div>
 </div>
@@ -3828,12 +3850,21 @@ const loginPassword = document.getElementById('loginPassword');
 const loginError = document.getElementById('loginError');
 const loginSubmitBtn = document.getElementById('loginSubmitBtn');
 
+let modalReturnFocus = null;
+let modalPreviousOverflow = '';
 function showOverlayAnd(modal) {
+  modalReturnFocus = document.activeElement;
+  modalPreviousOverflow = document.body.style.overflow;
+  document.body.style.overflow = 'hidden';
   overlay.style.display = 'block';
   modal.style.display = 'block';
   modal.setAttribute('aria-hidden', 'false');
 }
 function hideOverlayAnd(modal) {
+  if (modal.style.display === 'block') {
+    document.body.style.overflow = modalPreviousOverflow;
+    if (modalReturnFocus?.isConnected) modalReturnFocus.focus({preventScroll:true});
+  }
   overlay.style.display = 'none';
   modal.style.display = 'none';
   modal.setAttribute('aria-hidden', 'true');
@@ -4493,11 +4524,13 @@ function deleteProduct(id) {
 const detailModal = document.getElementById('detailModal');
 
 function openDetail(id) {
-  selectedProduct = products.find(p => p.id === id);
+  selectedProduct = products.find(p => String(p.id) === String(id));
   if (!selectedProduct) return;
   qty = 1;
   renderDetail();
   showOverlayAnd(detailModal);
+  detailModal.scrollTop = 0;
+  document.getElementById('closeDetailModal').focus({preventScroll:true});
 }
 
 function renderDetail() {
@@ -4516,40 +4549,10 @@ function renderDetail() {
 }
 
 document.getElementById('qtyMinus').addEventListener('click', () => { qty = Math.max(1, qty - 1); renderDetail(); });
-document.getElementById('qtyPlus').addEventListener('click', () => { qty = qty + 1; renderDetail(); });
+document.getElementById('qtyPlus').addEventListener('click', () => { qty = Math.min(Math.max(1, Number(selectedProduct?.stock) || 99), qty + 1); renderDetail(); });
 document.getElementById('closeDetailModal').addEventListener('click', () => hideOverlayAnd(detailModal));
 
-document.getElementById('whatsappBtn').addEventListener('click', async () => {
-  const p = selectedProduct;
-  const lines = [
-    'Olá! Tenho interesse neste pneu do catálogo:',
-    '',
-    `${p.brand} ${p.model}`,
-    `Medida: ${p.size}${p.load ? ' (' + p.load + ')' : ''}`,
-    `Aplicação: ${p.app || '-'}`,
-    `Quantidade: ${qty}`,
-    `Preço unitário: ${formatBRL(p.price)}`,
-    `Total estimado: ${formatBRL(p.price * qty)}`,
-  ];
-  const text = lines.join('\n');
-  try {
-    await db.collection('pedidos').add({
-      produtoId: p.id,
-      brand: p.brand,
-      model: p.model,
-      size: p.size,
-      load: p.load || '',
-      qty: qty,
-      price: p.price,
-      total: p.price * qty,
-      status: 'pendente',
-      criadoEm: firebase.firestore.FieldValue.serverTimestamp(),
-    });
-  } catch (e) {
-    console.error('Não foi possível registrar o pedido:', e);
-  }
-  window.location.href = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(text)}`;
-});
+
 
 
 /* ---- Animações e navegação fluida ---- */
@@ -5061,6 +5064,21 @@ function categoryIcons(){
   });
 }
 function bindBottom(){
+  $('#detailAddCartBtn')?.addEventListener('click',()=>{
+    if(!selectedProduct)return;
+    addCart(String(selectedProduct.id),qty);
+    hideOverlayAnd(detailModal);
+  });
+  document.addEventListener('keydown',event=>{
+    if(detailModal.style.display!=='block')return;
+    if(event.key==='Escape'){event.preventDefault();hideOverlayAnd(detailModal)}
+    if(event.key==='Tab'){
+      const focusables=[...detailModal.querySelectorAll('button:not([disabled]),a[href],input:not([disabled]),select')].filter(el=>el.getClientRects().length);
+      const first=focusables[0],last=focusables[focusables.length-1];
+      if(event.shiftKey&&document.activeElement===first){event.preventDefault();last?.focus()}
+      else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first?.focus()}
+    }
+  });
   $('#lpV71Home')?.addEventListener('click',()=>window.scrollTo({top:0,behavior:'smooth'}));
   $('#lpV71Catalog')?.addEventListener('click',()=>$('#categoryTabs')?.scrollIntoView({behavior:'smooth',block:'start'}));
   $('#lpV71CartBtn')?.addEventListener('click',openCart);
