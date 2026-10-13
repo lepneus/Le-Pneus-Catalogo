@@ -2513,6 +2513,69 @@ body.lp-v71 #categoryTabs{
  box-shadow:0 8px 20px rgba(0,0,0,.35);
 }
 </style>
+
+<style id="lp-photo-standard-v72">
+/* Molduras idênticas em todo o estoque, inclusive produtos do Controle. */
+body.lp-v71 .card-visual {
+  position:relative!important;
+  display:block!important;
+  height:225px!important;
+  padding:0!important;
+  overflow:hidden!important;
+  background:#050608!important;
+}
+body.lp-v71 .card-visual::before,
+body.lp-v71 .card-visual::after {content:none!important;display:none!important}
+body.lp-v71 .card-photo {
+  display:block!important;
+  width:100%!important;
+  height:100%!important;
+  margin:0!important;
+  padding:0!important;
+  border:0!important;
+  background:#050608!important;
+  object-fit:contain!important;
+  object-position:center!important;
+  mix-blend-mode:normal!important;
+  transform:none!important;
+  filter:none!important;
+  transition:filter .2s ease!important;
+}
+body.lp-v71 .product-card:hover .card-photo {transform:none!important;filter:brightness(1.07)!important}
+/* Arte interna de SVG gerado automaticamente: preenche a mesma moldura. */
+body.lp-v71 .card-photo.lp-auto-art {
+  object-fit:cover!important;
+  object-position:center 52%!important;
+  filter:brightness(.81) saturate(.48) contrast(1.12)!important;
+}
+body.lp-v71 .product-card:hover .card-photo.lp-auto-art {
+  filter:brightness(.88) saturate(.53) contrast(1.12)!important;
+}
+body.lp-v71 .lp-art-brand {
+  position:absolute;right:13px;top:12px;z-index:3;
+  max-width:calc(100% - 26px);
+  padding:5px 8px;
+  border-radius:5px;
+  color:#fff;
+  background:rgba(2,3,5,.72);
+  font:italic 900 clamp(13px,1.5vw,21px)/1.12 Arial,Helvetica,sans-serif;
+  text-transform:uppercase;
+  text-align:right;
+  overflow-wrap:anywhere;
+  text-shadow:0 1px 4px #000;
+}
+body.lp-v71 .lp-art-brand::after {
+  content:"";display:block;height:3px;margin-top:3px;
+  background:#e92336;border-radius:3px;
+}
+body.lp-v71 .lp-image-unavailable::after {
+  content:"Imagem indisponível"!important;display:grid!important;
+  position:absolute;inset:0;place-items:center;color:#8994a0;font-size:12px;
+}
+body.lp-v71 .category-tab svg,
+body.lp-v71 .category-tab img {display:none!important}
+@media(max-width:700px){body.lp-v71 .card-visual{height:190px!important}}
+</style>
 </head>
 <body class="lp-v71">
 <div class="lp-splash lp-stable-intro" aria-hidden="true">
@@ -2944,17 +3007,8 @@ async function initProducts() {
   }
   try {
     let snap = await db.collection('produtos').get();
-    if (snap.empty) {
-      // Primeira vez: semeia o banco com o catálogo inicial
-      const batch = db.batch();
-      SEED_PRODUCTS.forEach(p => {
-        const { id, ...data } = p;
-        const ref = db.collection('produtos').doc();
-        batch.set(ref, data);
-      });
-      await batch.commit();
-      snap = await db.collection('produtos').get();
-    }
+    // O Controle de Empresas é a origem do estoque. Um banco vazio NÃO
+    // deve ganhar produtos de demonstração ao abrir o catálogo público.
 
     // Importante para celular: mostra o catálogo já com o GET inicial,
     // sem depender do canal em tempo real abrir primeiro.
@@ -3439,6 +3493,8 @@ async function loadCategoryImages() {
     const key = lpBrandImageKey(brand);
     if (!brandImages[key]) brandImages[key] = url;
   });
+  // As imagens por marca chegam depois do estoque: atualizar o grid ao recebê-las.
+  render();
 }
 
 async function saveCategoryImage(category, dataUrl) {
@@ -4836,6 +4892,41 @@ function productImage(p){
   const brand=brandImages[lpBrandImageKey(lpResolvedBrand(p))]||'';
   return p.image||brand||cat||'';
 }
+/* Normalização visual: o Controle publica SVGs automáticos com moldura,
+   marca e selo de categoria próprios. Conservamos o SVG no Firebase, mas
+   usamos somente a arte interna no card e reescrevemos a marca com p.brand.
+   Fotos reais e fotos atribuídas manualmente permanecem intactas. */
+const lpArtCache = new Map();
+function lpHtml(v){
+  return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function lpCardArtwork(p){
+  const original=String(productImage(p)||'');
+  if(lpArtCache.has(original))return lpArtCache.get(original);
+  let result={src:original,auto:false};
+  if(/^data:image\/svg\+xml/i.test(original)){
+    try{
+      const payload=original.slice(original.indexOf(',')+1);
+      const svg=/;base64,/i.test(original.slice(0,original.indexOf(',')+1))
+        ? atob(payload) : decodeURIComponent(payload);
+      // Somente os templates aprovados pelo Controle, nunca SVGs personalizados.
+      const auto=/id=["'](?:topShade|topshade)["']/i.test(svg)
+        && /<image\s/i.test(svg)
+        && /<text\s/i.test(svg);
+      if(auto){
+        const art=svg.match(/<image\b[^>]*\bhref=(['"])(.*?)\1/i);
+        if(art&&art[2])result={src:art[2].replace(/&amp;/g,'&'),auto:true};
+      }else if(/imagem\s*(?:da|%20da)\s*marca/i.test(svg)){
+        // Não exibir telas técnicas de fallback como foto de produto.
+        result={src:(categoryImages[p.categoria||'Pneu']||DEFAULT_TIRE_IMAGE||''),auto:true};
+      }
+    }catch(err){console.debug('Arte automática preservada:',err)}
+  }
+  if(lpArtCache.size>240)lpArtCache.clear();
+  lpArtCache.set(original,result);
+  return result;
+}
+
 function modelText(p){
   const brand=lpResolvedBrand(p)||'';
   let model=String(p.model||'').trim();
@@ -4872,12 +4963,12 @@ renderGrid=function(){
   }
 
   filtered.forEach(p=>{
-    const img=productImage(p);
+    const art=lpCardArtwork(p);
     const brand=lpResolvedBrand(p)||lpFirstDescriptionWord(p)||'LE PNEUS';
     const model=modelText(p);
     const q=cardQty.get(String(p.id))||1;
-    const visual=img
-      ? `<img src="${img}" alt="${brand} ${model}" class="card-photo" loading="lazy" decoding="async" onerror="this.style.display='none'">`
+    const visual=art.src
+      ? `<img src="${lpHtml(art.src)}" alt="${lpHtml(brand+' '+model)}" class="card-photo${art.auto?' lp-auto-art':''}" loading="lazy" decoding="async">${art.auto?`<span class="lp-art-brand">${lpHtml(brand)}</span>`:''}`
       : '<div class="tire-ring"><div class="tire-ring-inner"></div></div>';
     html+=`
       <article class="product-card ${imageEditMode&&selectedImageProductIds.has(String(p.id))?'image-selected':''}">
@@ -4905,7 +4996,11 @@ renderGrid=function(){
 
   grid.innerHTML=html;
   if(window.__lpRevealVisible)window.__lpRevealVisible(grid);
-  /* Preserve finished product artwork without automatic background erasure. */
+  /* Não executar recorte agressivo nas fotos; apenas fallback visual em erro. */
+  $$('.card-photo',grid).forEach(img=>img.addEventListener('error',()=>{
+    img.style.opacity='0';
+    img.parentElement?.classList.add('lp-image-unavailable');
+  },{once:true}));
 
   $$('[data-open]',grid).forEach(b=>b.addEventListener('click',()=>{
     imageEditMode?toggleImageProductSelection(b.dataset.open):openDetail(b.dataset.open);
@@ -5067,12 +5162,9 @@ function heroVisual(){
   hero.appendChild(q);
 }
 function categoryIcons(){
-  $$('.category-tab').forEach(b=>{
-    const c=b.dataset.category;
-    if(c==='Pneu')b.innerHTML='<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="m4 10 2-5h12l2 5M3 10h18v8H3zM6 18v3m12-3v3M6 14h2m8 0h2"/></svg><span>Pneus de carro</span>';
-    else if(c==='Pneu de moto')b.innerHTML='<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="17" r="4"/><circle cx="19" cy="17" r="4"/><path d="m5 17 5-8 5 8H5m8-12h3l3 12M9 9H6"/></svg><span>Pneus de moto</span>';
-    else b.innerHTML='<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><path d="m15 8 2-2"/></svg><span>Câmaras de ar</span>';
-  });
+  // Apenas texto: nada de SVG, emoji ou ícone nas três categorias.
+  const labels={'Pneu':'Pneus de carro','Pneu de moto':'Pneus de moto','Acessórios':'Câmaras de ar'};
+  $$('.category-tab').forEach(b=>{b.textContent=labels[b.dataset.category]||b.textContent;});
 }
 function bindBottom(){
   $('#detailAddCartBtn')?.addEventListener('click',()=>{
