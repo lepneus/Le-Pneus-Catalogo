@@ -5117,19 +5117,25 @@ renderGrid=function(){
     const modelPrefix=String(model||'').match(/^\s*((?:\d{2,3}\s*\/\s*\d{2,3}\s*(?:ZR|R|-)\s*\d{2})|(?:\d{2,3}\s*[-]\s*\d{2}))(?:\s+|$)/i);
     const modelDedup=(modelPrefix && modelPrefix[1].toUpperCase().replace(/[^A-Z0-9]/g,'')===medidaKey) ? String(model).slice(modelPrefix[0].length).trim() : model;
     const detailText = `${medida} ${p.load||''} ${modelDedup}`.replace(/\s+/g,' ').trim();
-    // Padrão visual da primeira foto Wanli; a marca/medida vêm SEMPRE do Firebase.
-    // A foto original p.image continua preservada e disponível no detalhe.
     const brandLength=Array.from(brand).length;
     const brandSize=brandLength>14?'is-very-long':brandLength>8?'is-long':'';
     const carCategory=(p.categoria||'Pneu')==='Pneu';
-    // Nunca apresentar um pneu de carro como fotografia de moto/câmara de ar.
-    const art=carCategory?null:lpCardArtwork(p);
+    const art=lpCardArtwork(p);
     const brandArtwork=lpBrandLogos[lpLogoKey(brand)] || null;
     const brandHeader=brandArtwork
       ? `<img class="lp-photo-brand-logo" src="${brandArtwork}" alt="${lpHtml(brand)}" loading="eager" decoding="async">`
       : `<span class="lp-photo-brand lp-photo-brand-fallback ${brandSize}">${lpHtml(brand)}</span>`;
+    const ownImage=String(p.image||'').trim();
+    const sharedBrandImage=String(brandImages[lpBrandImageKey(brand)]||'').trim();
+    const ownImageIsSvg=/^data:image\/svg\+xml/i.test(ownImage);
+    const smokeTemplateBrands=new Set(['STRONGER','HIFLY']);
+    const isSmokeTemplateBrand=smokeTemplateBrands.has(lpBrandImageKey(brand));
+    const fallbackCarImage=ownImage || sharedBrandImage || '';
+    const shouldUseExistingCarImage=carCategory && !!fallbackCarImage && !(isSmokeTemplateBrand && (!ownImage || ownImageIsSvg || fallbackCarImage===sharedBrandImage));
     const visual=carCategory
-      ? `<div class="lp-wanli-standard" role="img" aria-label="Foto ilustrativa no padrão Wanli; produto ${lpHtml(brand)} ${lpHtml(p.size||'')}">${brandHeader}<span class="lp-photo-disclaimer">Imagem ilustrativa</span></div>`
+      ? (shouldUseExistingCarImage
+        ? `<img src="${lpHtml(fallbackCarImage)}" alt="${lpHtml(brand+' '+model)}" class="card-photo" loading="lazy" decoding="async" onerror="if(!this.dataset.lpFallback){this.dataset.lpFallback='1';this.src=window.LP_DEFAULT_TIRE_IMAGE||'';}else{this.style.display='none';this.parentElement&&this.parentElement.classList.add('lp-image-unavailable');}">`
+        : `<div class="lp-wanli-standard" role="img" aria-label="Foto ilustrativa no padrão Wanli; produto ${lpHtml(brand)} ${lpHtml(p.size||'')}">${brandHeader}<span class="lp-photo-disclaimer">Imagem ilustrativa</span></div>`)
       : (art&&art.src
         ? `<img src="${lpHtml(art.src)}" alt="${lpHtml(brand+' '+model)}" class="card-photo${art.auto?' lp-auto-art':''}" loading="lazy" decoding="async">`
         : '<div class="tire-ring"><div class="tire-ring-inner"></div></div>');
