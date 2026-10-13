@@ -5070,6 +5070,78 @@ function lpCardArtwork(p){
   return result;
 }
 
+
+const lpCarVisualApprovalCache = new Map();
+const lpApprovedCarImageByBrand = Object.create(null);
+let lpCarVisualRenderQueued = false;
+function lpQueueCarVisualRender(){
+  if(lpCarVisualRenderQueued) return;
+  lpCarVisualRenderQueued = true;
+  requestAnimationFrame(()=>{
+    lpCarVisualRenderQueued = false;
+    try{ renderGrid(); }catch(err){ console.debug('Revisão visual pendente:', err); }
+  });
+}
+function lpAnalyzeCarVisual(src, brandKey){
+  if(!src) return false;
+  const cached = lpCarVisualApprovalCache.get(src);
+  if(cached === true) return true;
+  if(cached === false || cached === 'pending') return false;
+  lpCarVisualApprovalCache.set(src, 'pending');
+  const img = new Image();
+  img.crossOrigin = 'anonymous';
+  img.onload = () => {
+    let ok = false;
+    try{
+      const w = 96, h = 72;
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      const ctx = canvas.getContext('2d', {willReadFrequently:true});
+      ctx.drawImage(img, 0, 0, w, h);
+      const data = ctx.getImageData(0,0,w,h).data;
+      let red = 0, strong = 0, minX = w, minY = h, maxX = -1, maxY = -1;
+      for(let y=0;y<h;y++){
+        for(let x=0;x<w;x++){
+          const i=(y*w+x)*4;
+          const r=data[i], g=data[i+1], b=data[i+2], a=data[i+3];
+          if(a < 200) continue;
+          const bright = 0.299*r + 0.587*g + 0.114*b;
+          if(r > 95 && r > g*1.45 && r > b*1.45) red++;
+          if(bright > 26 || (r+g+b) > 50){
+            strong++;
+            if(x < minX) minX = x;
+            if(y < minY) minY = y;
+            if(x > maxX) maxX = x;
+            if(y > maxY) maxY = y;
+          }
+        }
+      }
+      const redRatio = red / (w*h);
+      const fillRatio = strong / (w*h);
+      const bboxW = maxX >= minX ? (maxX - minX + 1) / w : 0;
+      const bboxH = maxY >= minY ? (maxY - minY + 1) / h : 0;
+      ok = redRatio < 0.028 && fillRatio > 0.22 && bboxW > 0.42 && bboxH > 0.42;
+    }catch(err){ ok = false; }
+    lpCarVisualApprovalCache.set(src, ok);
+    if(ok && brandKey && !lpApprovedCarImageByBrand[brandKey]) lpApprovedCarImageByBrand[brandKey] = src;
+    lpQueueCarVisualRender();
+  };
+  img.onerror = () => { lpCarVisualApprovalCache.set(src, false); lpQueueCarVisualRender(); };
+  img.src = src;
+  return false;
+}
+function lpGetApprovedCarImage(brandKey, ...sources){
+  if(brandKey && lpApprovedCarImageByBrand[brandKey]) return lpApprovedCarImageByBrand[brandKey];
+  for(const src of sources){
+    if(!src) continue;
+    if(lpAnalyzeCarVisual(src, brandKey)){
+      if(brandKey) lpApprovedCarImageByBrand[brandKey] = src;
+      return src;
+    }
+  }
+  return brandKey ? (lpApprovedCarImageByBrand[brandKey] || '') : '';
+}
+
 function modelText(p){
   const brand=lpResolvedBrand(p)||'';
   let model=String(p.model||'').trim();
@@ -5105,14 +5177,6 @@ renderGrid=function(){
     html+='<div class="empty-state"><strong>Nenhum item encontrado</strong><br>Tente outro filtro ou termo.</div>';
   }
 
-  const preferredOwnImageByBrand={};
-  (products||[]).forEach(item=>{
-    const brandKey=lpBrandImageKey(lpResolvedBrand(item));
-    const img=String(item?.image||'').trim();
-    if(!brandKey||!img||/^data:image\/svg\+xml/i.test(img)) return;
-    if(!preferredOwnImageByBrand[brandKey]) preferredOwnImageByBrand[brandKey]=img;
-  });
-
   filtered.forEach(p=>{
     const brand=lpResolvedBrand(p)||lpFirstDescriptionWord(p)||'LE PNEUS';
     const model=modelText(p);
@@ -5136,15 +5200,10 @@ renderGrid=function(){
     const brandKey=lpBrandImageKey(brand);
     const ownImage=String(p.image||'').trim();
     const sharedBrandImage=String(brandImages[brandKey]||'').trim();
-    const preferredBrandOwnImage=String(preferredOwnImageByBrand[brandKey]||'').trim();
-    const ownImageIsSvg=/^data:image\/svg\+xml/i.test(ownImage);
-    const smokeTemplateBrands=new Set(['STRONGER','HIFLY']);
-    const isSmokeTemplateBrand=smokeTemplateBrands.has(brandKey);
-    const fallbackCarImage=preferredBrandOwnImage || ownImage || sharedBrandImage || '';
-    const shouldUseExistingCarImage=carCategory && !!fallbackCarImage && (preferredBrandOwnImage ? true : !(isSmokeTemplateBrand && (!ownImage || ownImageIsSvg || fallbackCarImage===sharedBrandImage)));
+    const approvedCarImage=carCategory ? lpGetApprovedCarImage(brandKey, ownImage, sharedBrandImage) : '';
     const visual=carCategory
-      ? (shouldUseExistingCarImage
-        ? `<img src="${lpHtml(fallbackCarImage)}" alt="${lpHtml(brand+' '+model)}" class="card-photo" loading="lazy" decoding="async" onerror="if(!this.dataset.lpFallback){this.dataset.lpFallback='1';this.src=window.LP_DEFAULT_TIRE_IMAGE||'';}else{this.style.display='none';this.parentElement&&this.parentElement.classList.add('lp-image-unavailable');}">`
+      ? (approvedCarImage
+        ? `<img src="${lpHtml(approvedCarImage)}" alt="${lpHtml(brand+' '+model)}" class="card-photo" loading="lazy" decoding="async" onerror="this.style.display='none';this.parentElement&&this.parentElement.classList.add('lp-image-unavailable');">`
         : `<div class="lp-wanli-standard" role="img" aria-label="Foto ilustrativa no padrão Wanli; produto ${lpHtml(brand)} ${lpHtml(p.size||'')}">${brandHeader}<span class="lp-photo-disclaimer">Imagem ilustrativa</span></div>`)
       : (art&&art.src
         ? `<img src="${lpHtml(art.src)}" alt="${lpHtml(brand+' '+model)}" class="card-photo${art.auto?' lp-auto-art':''}" loading="lazy" decoding="async">`
