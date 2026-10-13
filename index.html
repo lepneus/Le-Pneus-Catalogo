@@ -5093,21 +5093,28 @@ function lpAnalyzeCarVisual(src, brandKey){
   img.onload = () => {
     let ok = false;
     try{
-      const w = 96, h = 72;
+      const w = 120, h = 90;
       const canvas = document.createElement('canvas');
       canvas.width = w; canvas.height = h;
       const ctx = canvas.getContext('2d', {willReadFrequently:true});
       ctx.drawImage(img, 0, 0, w, h);
       const data = ctx.getImageData(0,0,w,h).data;
-      let red = 0, strong = 0, minX = w, minY = h, maxX = -1, maxY = -1;
+      let red = 0, strong = 0, grayRoad = 0, centerDark = 0, minX = w, minY = h, maxX = -1, maxY = -1;
+      let centerCount = 0;
       for(let y=0;y<h;y++){
         for(let x=0;x<w;x++){
           const i=(y*w+x)*4;
           const r=data[i], g=data[i+1], b=data[i+2], a=data[i+3];
           if(a < 200) continue;
           const bright = 0.299*r + 0.587*g + 0.114*b;
-          if(r > 95 && r > g*1.45 && r > b*1.45) red++;
-          if(bright > 26 || (r+g+b) > 50){
+          const sat = Math.max(r,g,b) - Math.min(r,g,b);
+          if(r > 88 && r > g*1.35 && r > b*1.35) red++;
+          if(y > h*0.62 && bright > 28 && bright < 155 && sat < 42) grayRoad++;
+          if(x > w*0.23 && x < w*0.78 && y > h*0.18 && y < h*0.88){
+            centerCount++;
+            if(bright < 120) centerDark++;
+          }
+          if(bright > 24 || (r+g+b) > 42){
             strong++;
             if(x < minX) minX = x;
             if(y < minY) minY = y;
@@ -5116,11 +5123,18 @@ function lpAnalyzeCarVisual(src, brandKey){
           }
         }
       }
-      const redRatio = red / (w*h);
-      const fillRatio = strong / (w*h);
+      const total = w*h;
+      const redRatio = red / total;
+      const fillRatio = strong / total;
+      const roadRatio = grayRoad / (w * Math.max(1, Math.round(h*0.38)));
+      const centerDarkRatio = centerCount ? (centerDark / centerCount) : 0;
       const bboxW = maxX >= minX ? (maxX - minX + 1) / w : 0;
       const bboxH = maxY >= minY ? (maxY - minY + 1) / h : 0;
-      ok = redRatio < 0.028 && fillRatio > 0.22 && bboxW > 0.42 && bboxH > 0.42;
+      const tooSmall = bboxW < 0.52 || bboxH < 0.52 || fillRatio < 0.26;
+      const redSmoke = redRatio > 0.012;
+      const lacksRoad = roadRatio < 0.12;
+      const centerTooBright = centerDarkRatio < 0.50;
+      ok = !tooSmall && !redSmoke && !lacksRoad && !centerTooBright;
     }catch(err){ ok = false; }
     lpCarVisualApprovalCache.set(src, ok);
     if(ok && brandKey && !lpApprovedCarImageByBrand[brandKey]) lpApprovedCarImageByBrand[brandKey] = src;
