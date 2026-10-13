@@ -4867,6 +4867,31 @@ overlay.addEventListener('click', () => {
 <div class="lp-v71-toast" id="lpV71Toast">Adicionado ao carrinho</div>
 
 
+<style id="lp-v71-stability-fix">
+#productGrid .product-card,
+#productGrid .card-visual,
+#productGrid .card-photo,
+#productGrid .lp-v71-card-body,
+#productGrid .lp-v71-add,
+#productGrid .lp-v71-qty button{
+  -webkit-backface-visibility:hidden !important;
+  backface-visibility:hidden !important;
+  transform:translateZ(0);
+}
+#productGrid .product-card,
+#productGrid .lp-reveal,
+#productGrid .card-photo,
+#productGrid .card-visual{
+  animation:none !important;
+}
+#productGrid .lp-reveal{
+  opacity:1 !important;
+  transform:none !important;
+}
+#productGrid .product-card:hover{
+  transform:translateY(-3px) !important;
+}
+</style>
 <script id="lp-v71-script">
 (function(){
 'use strict';
@@ -4961,14 +4986,15 @@ renderGrid=function(){
   if(!filtered.length){
     html+='<div class="empty-state"><strong>Nenhum item encontrado</strong><br>Tente outro filtro ou termo.</div>';
   }
-
   filtered.forEach(p=>{
     const art=lpCardArtwork(p);
     const brand=lpResolvedBrand(p)||lpFirstDescriptionWord(p)||'LE PNEUS';
     const model=modelText(p);
     const q=cardQty.get(String(p.id))||1;
+    const sharedCategoryImage = categoryImages[p.categoria||'Pneu']||((p.categoria||'Pneu')==='Pneu'?(window.LP_DEFAULT_TIRE_IMAGE||DEFAULT_TIRE_IMAGE||''):'' );
+    const isSharedCategory = !!art.src && !!sharedCategoryImage && art.src===sharedCategoryImage;
     const visual=art.src
-      ? `<img src="${lpHtml(art.src)}" alt="${lpHtml(brand+' '+model)}" class="card-photo${art.auto?' lp-auto-art':''}" loading="lazy" decoding="async">${art.auto?`<span class="lp-art-brand">${lpHtml(brand)}</span>`:''}`
+      ? `<img src="${lpHtml(art.src)}" alt="${lpHtml(brand+' '+model)}" class="card-photo${art.auto?' lp-auto-art':''}" data-shared-category="${isSharedCategory?'1':'0'}" loading="lazy" decoding="async" onerror="if(!this.dataset.lpFallback){this.dataset.lpFallback='1';this.src=window.LP_DEFAULT_TIRE_IMAGE||'';}else{this.style.opacity='0';this.parentElement&&this.parentElement.classList.add('lp-image-unavailable');}">${art.auto?`<span class="lp-art-brand">${lpHtml(brand)}</span>`:''}`
       : '<div class="tire-ring"><div class="tire-ring-inner"></div></div>';
     html+=`
       <article class="product-card ${imageEditMode&&selectedImageProductIds.has(String(p.id))?'image-selected':''}">
@@ -4996,7 +5022,7 @@ renderGrid=function(){
 
   grid.innerHTML=html;
   if(window.__lpRevealVisible)window.__lpRevealVisible(grid);
-  /* Não executar recorte agressivo nas fotos; apenas fallback visual em erro. */
+  enhanceProductImages(grid);
   $$('.card-photo',grid).forEach(img=>img.addEventListener('error',()=>{
     img.style.opacity='0';
     img.parentElement?.classList.add('lp-image-unavailable');
