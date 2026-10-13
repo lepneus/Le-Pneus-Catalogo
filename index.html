@@ -5105,6 +5105,14 @@ renderGrid=function(){
     html+='<div class="empty-state"><strong>Nenhum item encontrado</strong><br>Tente outro filtro ou termo.</div>';
   }
 
+  const preferredOwnImageByBrand={};
+  (products||[]).forEach(item=>{
+    const brandKey=lpBrandImageKey(lpResolvedBrand(item));
+    const img=String(item?.image||'').trim();
+    if(!brandKey||!img||/^data:image\/svg\+xml/i.test(img)) return;
+    if(!preferredOwnImageByBrand[brandKey]) preferredOwnImageByBrand[brandKey]=img;
+  });
+
   filtered.forEach(p=>{
     const brand=lpResolvedBrand(p)||lpFirstDescriptionWord(p)||'LE PNEUS';
     const model=modelText(p);
@@ -5125,13 +5133,15 @@ renderGrid=function(){
     const brandHeader=brandArtwork
       ? `<img class="lp-photo-brand-logo" src="${brandArtwork}" alt="${lpHtml(brand)}" loading="eager" decoding="async">`
       : `<span class="lp-photo-brand lp-photo-brand-fallback ${brandSize}">${lpHtml(brand)}</span>`;
+    const brandKey=lpBrandImageKey(brand);
     const ownImage=String(p.image||'').trim();
-    const sharedBrandImage=String(brandImages[lpBrandImageKey(brand)]||'').trim();
+    const sharedBrandImage=String(brandImages[brandKey]||'').trim();
+    const preferredBrandOwnImage=String(preferredOwnImageByBrand[brandKey]||'').trim();
     const ownImageIsSvg=/^data:image\/svg\+xml/i.test(ownImage);
     const smokeTemplateBrands=new Set(['STRONGER','HIFLY']);
-    const isSmokeTemplateBrand=smokeTemplateBrands.has(lpBrandImageKey(brand));
-    const fallbackCarImage=ownImage || sharedBrandImage || '';
-    const shouldUseExistingCarImage=carCategory && !!fallbackCarImage && !(isSmokeTemplateBrand && (!ownImage || ownImageIsSvg || fallbackCarImage===sharedBrandImage));
+    const isSmokeTemplateBrand=smokeTemplateBrands.has(brandKey);
+    const fallbackCarImage=preferredBrandOwnImage || ownImage || sharedBrandImage || '';
+    const shouldUseExistingCarImage=carCategory && !!fallbackCarImage && (preferredBrandOwnImage ? true : !(isSmokeTemplateBrand && (!ownImage || ownImageIsSvg || fallbackCarImage===sharedBrandImage)));
     const visual=carCategory
       ? (shouldUseExistingCarImage
         ? `<img src="${lpHtml(fallbackCarImage)}" alt="${lpHtml(brand+' '+model)}" class="card-photo" loading="lazy" decoding="async" onerror="if(!this.dataset.lpFallback){this.dataset.lpFallback='1';this.src=window.LP_DEFAULT_TIRE_IMAGE||'';}else{this.style.display='none';this.parentElement&&this.parentElement.classList.add('lp-image-unavailable');}">`
