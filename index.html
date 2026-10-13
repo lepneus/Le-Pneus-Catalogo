@@ -2576,6 +2576,86 @@ body.lp-v71 .category-tab svg,
 body.lp-v71 .category-tab img {display:none!important}
 @media(max-width:700px){body.lp-v71 .card-visual{height:190px!important}}
 </style>
+
+<style id="lp-standard-photo-v74">
+/* Padrão real: todos os cards usam a MESMA composição e enquadramento. */
+body.lp-v71 #productGrid .card-visual{
+  height:225px!important;min-height:225px!important;overflow:hidden!important;
+  padding:0!important;background:#050608!important;
+}
+body.lp-v71 #productGrid .lp-studio-photo{
+  display:block;position:relative;width:100%;height:100%;overflow:hidden;
+  isolation:isolate;background:radial-gradient(ellipse at 50% 78%,#1d0c12 0%,#08090b 65%);
+}
+body.lp-v71 #productGrid .lp-studio-photo::before{
+  content:"";position:absolute;inset:0;z-index:0;pointer-events:none;
+  background-size:100% 100%,auto 133%!important;
+  background-position:center,center 44%!important;
+  background-repeat:no-repeat!important;
+}
+body.lp-v71 #productGrid .lp-studio-photo::after{
+  content:"";position:absolute;inset:0;z-index:1;pointer-events:none;
+  background:linear-gradient(90deg,rgba(0,0,0,.16),transparent 38%,rgba(0,0,0,.17)),
+             linear-gradient(0deg,rgba(0,0,0,.70),transparent 22%,transparent 75%,rgba(0,0,0,.37));
+}
+body.lp-v71 #productGrid .lp-studio-brand{
+  display:block;position:absolute;right:13px;top:14px;z-index:2;
+  max-width:calc(100% - 26px);color:#fff;text-align:right;text-transform:uppercase;
+  font:italic 900 clamp(15px,1.5vw,21px)/1.1 Arial,Helvetica,sans-serif;
+  letter-spacing:.1px;text-shadow:0 2px 7px #000,0 0 3px #000;
+  overflow-wrap:anywhere;
+}
+body.lp-v71 #productGrid .lp-studio-brand::after{
+  content:"";display:block;height:3px;width:100%;margin-top:3px;
+  background:#f5203a;border-radius:3px;
+}
+body.lp-v71 #productGrid .lp-studio-size{
+  display:block;position:absolute;z-index:2;bottom:13px;left:12px;
+  border-radius:5px;border:1px solid rgba(255,255,255,.2);
+  padding:5px 8px;background:rgba(4,6,8,.78);color:#e8e8e8;
+  font:800 11px/1.05 Arial,Helvetica,sans-serif;letter-spacing:.25px;
+}
+body.lp-v71 #productGrid .lp-studio-disclaimer{
+  display:block;position:absolute;z-index:2;bottom:5px;right:8px;
+  color:rgba(231,234,238,.55);font:500 8px/1 Arial,sans-serif;
+}
+body.lp-v71 #productGrid .product-card,
+body.lp-v71 #productGrid .lp-studio-photo,
+body.lp-v71 #productGrid .card-visual{
+  animation:none!important;opacity:1!important;
+  transition:border-color .15s ease,box-shadow .15s ease!important;
+}
+body.lp-v71 #productGrid .lp-studio-photo,
+body.lp-v71 #productGrid .card-visual{
+  transform:none!important;filter:none!important;
+}
+body.lp-v71 #productGrid .product-card.lp-reveal,
+body.lp-v71 #productGrid .product-card.lp-visible{
+  animation:none!important;transform:none!important;opacity:1!important;
+}
+@media(max-width:700px){
+ body.lp-v71 #productGrid .card-visual{height:190px!important;min-height:190px!important}
+ body.lp-v71 #productGrid .lp-studio-brand{font-size:14px;right:8px;top:8px}
+ body.lp-v71 #productGrid .lp-studio-size{font-size:10px;bottom:10px;left:8px}
+}
+</style>
+<style id="lp-standard-photo-source" data-photo-source=""></style>
+
+<style id="lp-card-pattern-user-fix">
+body.lp-v71 .lp-v71-meta{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:10px}
+body.lp-v71 .lp-v71-stock{position:static!important;display:inline-flex!important;align-items:center;gap:6px;margin:0!important;padding:6px 10px!important;border-radius:999px!important;background:#00361f!important;border:1px solid rgba(37,231,135,.22)!important;color:#25e787!important;font:800 10px/1 system-ui,sans-serif!important;box-shadow:none!important}
+body.lp-v71 .lp-v71-stock i{width:8px;height:8px;border-radius:50%;background:#20ef7a;box-shadow:0 0 8px rgba(32,239,122,.4)}
+body.lp-v71 .lp-v71-pill{display:inline-flex;align-items:center;justify-content:center;min-height:24px;padding:5px 9px;border-radius:8px;border:1px solid #34404c;background:#0c1217;color:#e2e7eb;font:700 10px/1 system-ui,sans-serif}
+body.lp-v71 .lp-v71-specs{display:none!important}
+body.lp-v71 .lp-v71-model{min-height:34px;margin-top:6px}
+body.lp-v71 .lp-v71-price{margin-top:12px}
+body.lp-v71 .card-visual{height:240px!important;background:#050608!important}
+body.lp-v71 .card-photo{width:100%!important;height:100%!important;object-fit:cover!important;object-position:center!important;padding:0!important;background:#050608!important;filter:none!important;transform:none!important}
+body.lp-v71 .card-photo.lp-auto-art{object-fit:cover!important;object-position:center 50%!important;filter:brightness(.86) saturate(.70) contrast(1.06)!important}
+body.lp-v71 .lp-art-brand{position:absolute;right:13px;top:12px;z-index:3;max-width:calc(100% - 26px);padding:0;background:none;color:#fff;font:italic 900 clamp(16px,1.7vw,24px)/1.05 Arial,Helvetica,sans-serif;text-transform:uppercase;text-align:right;text-shadow:0 2px 6px #000;overflow-wrap:anywhere}
+body.lp-v71 .lp-art-brand::after{content:"";display:block;height:3px;margin-top:3px;background:#ef1f2f;border-radius:3px}
+@media(max-width:760px){body.lp-v71 .card-visual{height:210px!important}body.lp-v71 .card-photo{object-fit:cover!important}}
+</style>
 </head>
 <body class="lp-v71">
 <div class="lp-splash lp-stable-intro" aria-hidden="true">
@@ -3701,6 +3781,9 @@ function renderFilters() {
 
 function lpCleanTireSize(value) {
   const s = String(value || '').toUpperCase().replace(/\s+/g, ' ').trim();
+  // Padrão da planilha: "205.60.15" significa a medida 205/60 R15.
+  const dottedCar = s.match(/^(\d{3})[.,](\d{2})[.,](\d{2})$/);
+  if (dottedCar) return `${dottedCar[1]}/${dottedCar[2]} R${dottedCar[3]}`;
 
   const patterns = [
     /\b\d{3}\s*\/\s*\d{2,3}\s*(?:ZR|R)\s*\d{2}\b/i,   // 175/75 R13, 205/55R16
@@ -4986,15 +5069,17 @@ renderGrid=function(){
   if(!filtered.length){
     html+='<div class="empty-state"><strong>Nenhum item encontrado</strong><br>Tente outro filtro ou termo.</div>';
   }
+
   filtered.forEach(p=>{
     const art=lpCardArtwork(p);
     const brand=lpResolvedBrand(p)||lpFirstDescriptionWord(p)||'LE PNEUS';
     const model=modelText(p);
     const q=cardQty.get(String(p.id))||1;
-    const sharedCategoryImage = categoryImages[p.categoria||'Pneu']||((p.categoria||'Pneu')==='Pneu'?(window.LP_DEFAULT_TIRE_IMAGE||DEFAULT_TIRE_IMAGE||''):'' );
-    const isSharedCategory = !!art.src && !!sharedCategoryImage && art.src===sharedCategoryImage;
+    const aro=sizeParts(p.size).r;
+    const titlePrefix = p.categoria==='Acessórios' ? 'CÂMARA' : 'PNEU';
+    const detailText = `${lpCleanTireSize(p.size||'')} ${p.load||''} ${model}`.replace(/\s+/g,' ').trim();
     const visual=art.src
-      ? `<img src="${lpHtml(art.src)}" alt="${lpHtml(brand+' '+model)}" class="card-photo${art.auto?' lp-auto-art':''}" data-shared-category="${isSharedCategory?'1':'0'}" loading="lazy" decoding="async" onerror="if(!this.dataset.lpFallback){this.dataset.lpFallback='1';this.src=window.LP_DEFAULT_TIRE_IMAGE||'';}else{this.style.opacity='0';this.parentElement&&this.parentElement.classList.add('lp-image-unavailable');}">${art.auto?`<span class="lp-art-brand">${lpHtml(brand)}</span>`:''}`
+      ? `<img src="${lpHtml(art.src)}" alt="${lpHtml(brand+' '+model)}" class="card-photo${art.auto?' lp-auto-art':''}" loading="lazy" decoding="async" onerror="if(!this.dataset.lpFallback){this.dataset.lpFallback='1';this.src=window.LP_DEFAULT_TIRE_IMAGE||'';}else{this.style.opacity='0';this.parentElement&&this.parentElement.classList.add('lp-image-unavailable');}">${art.auto?`<span class="lp-art-brand">${lpHtml(brand)}</span>`:''}`
       : '<div class="tire-ring"><div class="tire-ring-inner"></div></div>';
     html+=`
       <article class="product-card ${imageEditMode&&selectedImageProductIds.has(String(p.id))?'image-selected':''}">
@@ -5003,9 +5088,12 @@ renderGrid=function(){
         <button type="button" class="card-clickable" data-open="${p.id}">
           <div class="card-visual">${visual}</div>
           <div class="lp-v71-card-body">
-            <div class="lp-v71-brand">${(p.categoria==='Acessórios'?'Câmara':'Pneu')} ${brand}</div>
-            <div class="lp-v71-model">${lpCleanTireSize(p.size||'')} ${p.load||''} ${model}</div>
-            <div class="lp-v71-stock"><i></i> ${p.stock>0?'Em estoque':'Consultar'}</div><div class="lp-v71-specs">${specs(p)}</div>
+            <div class="lp-v71-brand">${titlePrefix} ${brand}</div>
+            <div class="lp-v71-model">${lpHtml(detailText)}</div>
+            <div class="lp-v71-meta">
+              <div class="lp-v71-stock"><i></i> ${p.stock>0?'Em estoque':'Consultar'}</div>
+              ${aro?`<span class="lp-v71-pill">Aro ${lpHtml(aro)}</span>`:''}
+            </div>
             <div class="lp-v71-price">${formatBRL(p.price)}</div>
           </div>
         </button>
@@ -5020,13 +5108,9 @@ renderGrid=function(){
       </article>`;
   });
 
+  if (grid.__lpRenderedMarkup === html) return;
+  grid.__lpRenderedMarkup = html;
   grid.innerHTML=html;
-  if(window.__lpRevealVisible)window.__lpRevealVisible(grid);
-  enhanceProductImages(grid);
-  $$('.card-photo',grid).forEach(img=>img.addEventListener('error',()=>{
-    img.style.opacity='0';
-    img.parentElement?.classList.add('lp-image-unavailable');
-  },{once:true}));
 
   $$('[data-open]',grid).forEach(b=>b.addEventListener('click',()=>{
     imageEditMode?toggleImageProductSelection(b.dataset.open):openDetail(b.dataset.open);
