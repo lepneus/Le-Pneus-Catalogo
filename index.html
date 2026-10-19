@@ -2887,6 +2887,21 @@ body.lp-v71 .lp-offer-dot:focus-visible{outline:2px solid #ff8194;outline-offset
  body.lp-v71 .lp-offer-progress{display:none!important}
 }
 </style>
+<style id="lp-direct-requests-oct26">
+/* Admin só vê o comando de oferta quando está autenticado. */
+body.lp-v71 .lp-admin-promo-btn{display:none!important;width:100%;min-height:42px;margin-top:9px;
+ border:1px solid #ce455a;border-radius:9px;color:#ffe9ed;background:#32151d;
+ font:800 12px/1.15 system-ui,sans-serif;cursor:pointer;transition:background .15s ease,border-color .15s ease}
+body.lp-v71.admin-mode #productGrid .lp-admin-promo-btn{display:block!important}
+body.lp-v71.admin-mode #productGrid .lp-admin-promo-btn:hover{background:#49212b;border-color:#fa6179}
+body.lp-v71.admin-mode #productGrid .lp-admin-promo-btn.selected{background:#0e3825;border-color:#2bc875;color:#8affb5}
+body.lp-v71 #productGrid .lp-v71-add{background:linear-gradient(110deg,#159c56,#087f43)!important;color:#fff!important}
+body.lp-v71 #productGrid .lp-v71-add:hover{filter:brightness(1.1)}
+body.lp-v71 .lp-v71-bottom{grid-template-columns:repeat(3,minmax(0,1fr))!important}
+body.lp-v71 .lp-v71-cart-top,body.lp-v71 #lpV71TopCart{display:none!important}
+body.lp-v71 #detailAddCartBtn{background:#119c53!important;border-color:#1abc6a!important;color:white!important}
+@media(max-width:760px){body.lp-v71 #productGrid .lp-admin-promo-btn{font-size:11px;min-height:44px}}
+</style>
 </head>
 <body class="lp-v71">
 <div class="lp-splash lp-stable-intro" aria-hidden="true">
@@ -2968,7 +2983,7 @@ body.lp-v71 .lp-offer-dot:focus-visible{outline:2px solid #ff8194;outline-offset
   <div class="hero-inner">
     <div class="hero-eyebrow" id="heroEyebrow">Estoque atualizado diariamente</div>
     <h1 id="heroTitle"><span id="heroTitleLead">Pneu certo</span>, <em id="heroTitleHighlight">medida certa</em><span id="heroTitleTail">, sem enrolação</span></h1>
-    <p id="heroDescription">Catálogo direto do estoque: filtre por medida, marca ou aplicação e monte seu pedido. Na compra de seus pneus, montagem e balanceamento inclusos.</p>
+    <p id="heroDescription">Catálogo direto do estoque: filtre por medida, marca ou aplicação e solicite seu pneu pelo WhatsApp. Na compra de seus pneus, montagem e balanceamento inclusos.</p>
     <div class="hero-badges">
       <div class="hero-badge"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/></svg> <span id="heroBadge1">Garantia de fábrica</span></div>
       <div class="hero-badge"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg> <span id="heroBadge2">Montagem e balanceamento</span></div>
@@ -3245,8 +3260,8 @@ body.lp-v71 .lp-offer-dot:focus-visible{outline:2px solid #ff8194;outline-offset
         </div>
       </div>
       <div class="detail-total"><span>Total estimado</span><strong id="detailTotal"></strong></div>
-      <button class="whatsapp-btn" id="detailAddCartBtn" type="button"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 4h3l2 11h10l3-8H7"/><circle cx="10" cy="20" r="1"/><circle cx="18" cy="20" r="1"/></svg> Adicionar ao carrinho</button>
-      <div class="checkout-note">Adicione ao carrinho e continue escolhendo. Finalize seu pedido pelo WhatsApp no carrinho.</div>
+      <button class="whatsapp-btn" id="detailAddCartBtn" type="button"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 11.5a8 8 0 0 1-11.7 7.1L4 20l1.4-4.1A8 8 0 1 1 20 11.5Z"/><path d="M8.7 8.5c.5 2.8 2 4.3 4.8 5"/></svg> Solicitar no WhatsApp</button>
+      <div class="checkout-note">Escolha a quantidade e envie a solicitação diretamente para a Le Pneus pelo WhatsApp.</div>
     </div>
   </div>
 </div>
@@ -3315,7 +3330,7 @@ let siteSettings = {
   titleLead: 'Pneu certo',
   titleHighlight: 'medida certa',
   titleTail: ', sem enrolação',
-  description: 'Catálogo direto do estoque: filtre por medida, marca ou aplicação e monte seu pedido. Na compra de seus pneus, montagem e balanceamento inclusos.',
+  description: 'Catálogo direto do estoque: filtre por medida, marca ou aplicação e solicite seu pneu pelo WhatsApp. Na compra de seus pneus, montagem e balanceamento inclusos.',
   badge1: 'Garantia de fábrica',
   badge2: 'Montagem e balanceamento',
   colorEyebrow: '#ffd21c',
@@ -4363,7 +4378,8 @@ async function lpAdminTogglePromo(id,button){
   }catch(err){
     console.error('Não foi possível alterar a oferta',err);
     document.getElementById('lpPromoAdminError').textContent='Erro ao salvar no Firebase. A oferta não foi alterada.';
-    button.disabled=false;button.textContent=p.promo?'Remover oferta':'Marcar oferta';
+    button.disabled=false;button.textContent=p.promo?'Remover oferta':'Marcar como oferta';
+    if(button.matches('[data-card-offer]'))alert('Falha ao salvar oferta no Firebase. Verifique seu login e tente novamente.');
   }
 }
 (function lpBindOfferControls(){
@@ -5328,19 +5344,6 @@ overlay.addEventListener('click', () => {
 
 
 
-<div class="lp-v71-cart-overlay" id="lpV71CartOverlay"></div>
-<aside class="lp-v71-cart" id="lpV71Cart" aria-hidden="true">
-  <div class="lp-v71-cart-head">
-    <h3>Meu carrinho</h3>
-    <button type="button" class="lp-v71-cart-close" id="lpV71CartClose">×</button>
-  </div>
-  <div class="lp-v71-cart-items" id="lpV71CartItems"></div>
-  <div class="lp-v71-cart-foot">
-    <div class="lp-v71-cart-total"><span>Total estimado</span><strong id="lpV71CartTotal">R$ 0,00</strong></div>
-    <button type="button" class="lp-v71-wa" id="lpV71Checkout">Finalizar pedido no WhatsApp</button>
-  </div>
-</aside>
-
 <section class="lp-v71-trust" aria-label="Benefícios">
   <div><b>▣</b><span>Estoque<br>atualizado</span></div>
   <div><b>◇</b><span>Compra<br>segura</span></div>
@@ -5354,19 +5357,13 @@ overlay.addEventListener('click', () => {
   </button>
   <button type="button" class="lp-v71-nav" id="lpV71Catalog">
     <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"></circle><path d="m16 16 4.2 4.2"></path></svg>
-    <span>Catálogo</span>
-  </button>
-  <button type="button" class="lp-v71-nav" id="lpV71CartBtn">
-    <svg viewBox="0 0 24 24"><path d="M4 5h2l2 10h9l2-7H7"></path><circle cx="10" cy="19" r="1"></circle><circle cx="17" cy="19" r="1"></circle></svg>
-    <span class="lp-v71-badge">0</span>
-    <span>Carrinho</span>
+    <span>Buscar</span>
   </button>
   <button type="button" class="lp-v71-nav wa" id="lpV71Whats">
     <svg viewBox="0 0 24 24"><path d="M20 11.5a8 8 0 0 1-11.7 7.1L4 20l1.4-4.1A8 8 0 1 1 20 11.5Z"></path><path d="M8.7 8.5c.5 2.8 2 4.3 4.8 5"></path></svg>
     <span>WhatsApp</span>
   </button>
 </nav>
-<div class="lp-v71-toast" id="lpV71Toast">Adicionado ao carrinho</div>
 
 
 <style id="lp-v71-stability-fix">
@@ -5398,7 +5395,6 @@ overlay.addEventListener('click', () => {
 (function(){
 'use strict';
 
-const CART_KEY='lepneus-cart-v71';
 const cardQty=new Map();
 const $=(s,r=document)=>r.querySelector(s);
 const $$=(s,r=document)=>[...r.querySelectorAll(s)];
@@ -5559,8 +5555,8 @@ function modelText(p){
   if(brand && model.toUpperCase().startsWith(brand.toUpperCase()+' ')) model=model.slice(brand.length).trim();
   return model||lpCleanTireSize(p.size)||'Produto';
 }
-function cartIcon(){
-  return '<svg viewBox="0 0 24 24"><path d="M4 5h2l2 10h9l2-7H7"></path><circle cx="10" cy="19" r="1"></circle><circle cx="17" cy="19" r="1"></circle></svg>';
+function waIcon(){
+  return '<svg viewBox="0 0 24 24"><path d="M20 11.5a8 8 0 0 1-11.7 7.1L4 20l1.4-4.1A8 8 0 1 1 20 11.5Z"></path><path d="M8.7 8.5c.5 2.8 2 4.3 4.8 5"></path></svg>';
 }
 function specs(p){
   const s=sizeParts(p.size), a=[];
@@ -5644,7 +5640,8 @@ renderGrid=function(){
             <span id="lpQty_${p.id}">${q}</span>
             <button type="button" data-plus="${p.id}">+</button>
           </div>
-          <button type="button" class="lp-v71-add" data-add="${p.id}">${cartIcon()} Adicionar</button>
+          <button type="button" class="lp-v71-add" data-add="${lpHtml(String(p.id))}" aria-label="Pedir ${lpHtml(brand)} pelo WhatsApp">${waIcon()} Pedir no WhatsApp</button>
+          <button type="button" class="lp-admin-promo-btn${p.promo?' selected':''}" data-card-offer="${lpHtml(String(p.id))}" aria-pressed="${p.promo?'true':'false'}">${p.promo?'Remover oferta':'Marcar como oferta'}</button>
         </div>
       </article>`;
   });
@@ -5675,122 +5672,40 @@ renderGrid=function(){
   $$('[data-add]',grid).forEach(b=>b.addEventListener('click',e=>{
     e.stopPropagation();
     const id=String(b.dataset.add);
-    addCart(id,cardQty.get(id)||1);
+    const p=products.find(item=>String(item.id)===id);
+    if(p)lpRequestOnWhatsApp(p,cardQty.get(id)||1);
+  }));
+  $$('[data-card-offer]',grid).forEach(b=>b.addEventListener('click',e=>{
+    e.stopPropagation();
+    if(!auth?.currentUser)return;
+    lpAdminTogglePromo(b.dataset.cardOffer,b);
   }));
 };
 
-function getCart(){
-  try{const x=JSON.parse(localStorage.getItem(CART_KEY)||'[]');return Array.isArray(x)?x:[]}catch(_){return[]}
-}
-function saveCart(c){
-  localStorage.setItem(CART_KEY,JSON.stringify(c));
-  updateCart();
-}
-function findP(id){return products.find(p=>String(p.id)===String(id))}
-function addCart(id,qty){
-  const p=findP(id);if(!p)return;
-  const cart=getCart();
-  const row=cart.find(x=>String(x.id)===String(id));
-  const max=Math.max(1,Math.floor(num(p.stock)||99));
-  if(row)row.qty=Math.min(max,(num(row.qty)||0)+qty);
-  else cart.push({id:String(id),qty:Math.min(max,Math.max(1,qty))});
-  saveCart(cart);
-  const t=$('#lpV71Toast');if(t){t.classList.add('show');clearTimeout(addCart._t);addCart._t=setTimeout(()=>t.classList.remove('show'),1300)}
-}
-function cartCount(){return getCart().reduce((s,x)=>s+num(x.qty),0)}
-function cartTotal(){
-  return getCart().reduce((s,x)=>{
-    const p=findP(x.id);
-    return s+(p?num(p.price)*num(x.qty):0);
-  },0);
-}
-function setCartQty(id,qty){
-  const p=findP(id),cart=getCart(),row=cart.find(x=>String(x.id)===String(id));
-  if(!row)return;
-  const max=p?Math.max(1,Math.floor(num(p.stock)||99)):99;
-  row.qty=Math.max(1,Math.min(max,qty));
-  saveCart(cart);
-}
-function removeCart(id){saveCart(getCart().filter(x=>String(x.id)!==String(id)))}
-function updateCart(){
-  const count=cartCount();
-  $$('.lp-v71-badge').forEach(b=>{b.textContent=count;b.style.display=count?'flex':'none'});
-  const wrap=$('#lpV71CartItems');if(!wrap)return;
-  const cart=getCart();
-  if(!cart.length){
-    wrap.innerHTML='<div class="lp-v71-cart-empty">Seu carrinho está vazio.<br>Adicione pneus para montar o pedido.</div>';
-  }else{
-    wrap.innerHTML=cart.map(row=>{
-      const p=findP(row.id);if(!p)return'';
-      const img=productImage(p);
-      const brand=lpResolvedBrand(p)||'';
-      return `<div class="lp-v71-cart-item">
-        ${img?`<img src="${img}" alt="">`:'<div></div>'}
-        <div>
-          <div class="lp-v71-cart-title">${brand} ${modelText(p)}</div>
-          <div class="lp-v71-cart-sub">${lpCleanTireSize(p.size||'')}</div>
-          <div class="lp-v71-cart-price">${money(num(p.price)*num(row.qty))}</div>
-          <div class="lp-v71-cart-q">
-            <button type="button" data-cminus="${p.id}">−</button>
-            <span>${row.qty}</span>
-            <button type="button" data-cplus="${p.id}">+</button>
-          </div>
-        </div>
-        <button type="button" class="lp-v71-remove" data-cremove="${p.id}">×</button>
-      </div>`;
-    }).join('');
-  }
-  $('#lpV71CartTotal').textContent=money(cartTotal());
-  $$('[data-cminus]',wrap).forEach(b=>b.addEventListener('click',()=>{
-    const id=b.dataset.cminus,row=getCart().find(x=>String(x.id)===String(id));
-    setCartQty(id,(num(row?.qty)||1)-1);
-  }));
-  $$('[data-cplus]',wrap).forEach(b=>b.addEventListener('click',()=>{
-    const id=b.dataset.cplus,row=getCart().find(x=>String(x.id)===String(id));
-    setCartQty(id,(num(row?.qty)||1)+1);
-  }));
-  $$('[data-cremove]',wrap).forEach(b=>b.addEventListener('click',()=>removeCart(b.dataset.cremove)));
-}
-function openCart(){
-  updateCart();
-  $('#lpV71CartOverlay')?.classList.add('open');
-  $('#lpV71Cart')?.classList.add('open');
-  document.body.style.overflow='hidden';
-}
-function closeCart(){
-  $('#lpV71CartOverlay')?.classList.remove('open');
-  $('#lpV71Cart')?.classList.remove('open');
-  document.body.style.overflow='';
-}
-function checkout(){
-  const cart=getCart();
-  if(!cart.length)return;
-  const lines=['Olá! Quero fazer este pedido pelo catálogo Le Pneus:',''];
-  cart.forEach(row=>{
-    const p=findP(row.id);if(!p)return;
-    lines.push(`• ${lpResolvedBrand(p)||''} ${modelText(p)}`);
-    lines.push(`  Medida: ${lpCleanTireSize(p.size||'-')}`);
-    lines.push(`  Quantidade: ${row.qty}`);
-    lines.push(`  Unitário: ${money(p.price)}`);
-    lines.push('');
-  });
-  lines.push(`Total estimado: ${money(cartTotal())}`);
-  lines.push('Podem confirmar disponibilidade e valor final?');
-  window.location.href=`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(lines.join('\n'))}`;
+function lpRequestOnWhatsApp(p, amount){
+  if(!p)return;
+  const numItems=Math.min(Math.max(1,Math.floor(Number(amount)||1)),Math.max(1,Math.floor(Number(p.stock)||99)));
+  const brand=lpResolvedBrand(p)||p.brand||'';
+  const unit=num(p.price);
+  const lines=[
+    'Olá! Gostaria de solicitar este pneu pelo catálogo Le Pneus:',
+    '',
+    `Produto: ${brand} ${modelText(p)}`,
+    `Medida: ${lpCleanTireSize(p.size||'-')}`,
+    `Quantidade: ${numItems}`,
+    `Preço unitário: ${money(unit)}`,
+    `Total estimado: ${money(unit*numItems)}`,
+    '',
+    'Podem confirmar a disponibilidade e o valor final?'
+  ];
+  const link=`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(lines.join('\n'))}`;
+  const popup=window.open(link,'_blank');
+  if(popup){ try{popup.opener=null;}catch(_){} }
+  else{ window.location.assign(link); }
 }
 
 function decorateHeader(){
   const header=$('.shop-header');if(!header)return;
-  if(!$('#lpV71TopCart')){
-    const cart=document.createElement('button');
-    cart.id='lpV71TopCart';
-    cart.className='lp-v71-cart-top';
-    cart.type='button';
-    cart.setAttribute('aria-label','Abrir carrinho');
-    cart.innerHTML=`${cartIcon()}<span class="lp-v71-badge">0</span>`;
-    header.appendChild(cart);
-    cart.addEventListener('click',openCart);
-  }
   const filterBtn=$('#headerFiltersBtn');
   if(filterBtn){
     filterBtn.innerHTML='';
@@ -5820,8 +5735,7 @@ function categoryIcons(){
 function bindBottom(){
   $('#detailAddCartBtn')?.addEventListener('click',()=>{
     if(!selectedProduct)return;
-    addCart(String(selectedProduct.id),qty);
-    hideOverlayAnd(detailModal);
+    lpRequestOnWhatsApp(selectedProduct,qty);
   });
   document.addEventListener('keydown',event=>{
     if(detailModal.style.display!=='block')return;
@@ -5834,12 +5748,13 @@ function bindBottom(){
     }
   });
   $('#lpV71Home')?.addEventListener('click',()=>window.scrollTo({top:0,behavior:'smooth'}));
-  $('#lpV71Catalog')?.addEventListener('click',()=>$('#categoryTabs')?.scrollIntoView({behavior:'smooth',block:'start'}));
-  $('#lpV71CartBtn')?.addEventListener('click',openCart);
+  $('#lpV71Catalog')?.addEventListener('click',()=>{
+    const input=$('#searchInput');
+    if(!input)return;
+    input.scrollIntoView({behavior:'smooth',block:'center'});
+    try{input.focus({preventScroll:true})}catch(_){input.focus()}
+  });
   $('#lpV71Whats')?.addEventListener('click',()=>{window.location.href=`https://wa.me/${WHATSAPP_NUMBER}`});
-  $('#lpV71CartClose')?.addEventListener('click',closeCart);
-  $('#lpV71CartOverlay')?.addEventListener('click',closeCart);
-  $('#lpV71Checkout')?.addEventListener('click',checkout);
 }
 function keepSearchFocus(){
   const input=$('#searchInput');
@@ -5862,7 +5777,6 @@ function boot(){
   categoryIcons();
   bindBottom();
   keepSearchFocus();
-  updateCart();
   try{renderGrid();if(typeof renderPromotions==='function'){lpOffersState.signature='';renderPromotions();}}catch(e){console.warn('V71 render:',e)}
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});
