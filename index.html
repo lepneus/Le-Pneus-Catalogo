@@ -3227,6 +3227,10 @@ body.lp-v71 #detailAddCartBtn{background:#119c53!important;border-color:#1abc6a!
       <label>Estoque<input type="number" min="0" id="f_stock"></label>
       <label class="checkbox-label"><input type="checkbox" id="f_promo"> Oferta do dia (aparece na vitrine e no topo)</label>
     </div>
+    <div id="promoFields" style="display:none;grid-template-columns:1fr 1fr;gap:12px">
+      <label>Desconto (%)<input type="number" min="0" max="100" step="0.01" id="f_discount"></label>
+      <label>Preço promocional (R$)<input type="number" min="0" step="0.01" id="f_promo_price"></label>
+    </div>
     <label class="full-row">Link da foto (URL)<input type="text" id="f_image" placeholder="https://..."></label>
     <div class="image-preview" id="imagePreviewWrap" style="display:none;">
       <span>Pré-visualização:</span>
@@ -4124,7 +4128,7 @@ function renderGrid() {
         <div class="card-body">
           <div class="card-brand">${resolvedBrand || lpFirstDescriptionWord(p) || ''}</div>
           <div class="card-size">${lpCleanTireSize(p.size)}</div>
-          <div class="card-bottom"><div class="card-price">${formatBRL(p.price)}<span class="per-unit">/un</span></div></div>
+          <div class="card-bottom"><div class="card-price">${lpPromoText(p)}<span class="per-unit">/un</span></div></div>
           <div class="card-stock">${p.stock > 0 ? p.stock + " em estoque" : "Consultar disponibilidade"}</div>
         </div>
       </button>
@@ -4296,7 +4300,7 @@ function lpOfferDrawSlide(){
   const markup=`<button type="button" class="lp-offer-main lp-offer-enter" data-offer-id="${lpOfferEscape(id)}" aria-label="Ver detalhes da oferta ${lpOfferEscape(title)}">${lpOfferVisual(p)}
     <div class="lp-offer-info"><span class="lp-offer-label">Oferta especial</span>
       <strong class="lp-offer-title">${lpOfferEscape(title)}</strong><span class="lp-offer-details">${lpOfferEscape(details)}</span>
-      <strong class="lp-offer-price">${formatBRL(p.price)}</strong>
+      <strong class="lp-offer-price">${lpPromoText(p)}</strong>
       <span class="lp-offer-availability">Em estoque</span><span class="lp-offer-action">Ver oferta</span></div></button>`;
   const slide=document.getElementById('lpOfferSlide');
   if(slide && slide.innerHTML!==markup)slide.innerHTML=markup;
@@ -5062,6 +5066,9 @@ function openForm(id) {
   document.getElementById('f_price').value = p ? p.price : '';
   document.getElementById('f_stock').value = p ? p.stock : '';
   document.getElementById('f_promo').checked = p ? !!p.promo : false;
+  document.getElementById('f_discount').value = p ? (p.discount || '') : '';
+  document.getElementById('f_promo_price').value = p ? (p.promoPrice || '') : '';
+  document.getElementById('promoFields').style.display = p && p.promo ? 'grid' : 'none';
   document.getElementById('f_image').value = p ? p.image : '';
   updateImagePreview();
   showOverlayAnd(formModal);
@@ -5074,6 +5081,7 @@ function updateImagePreview() {
   if (url) { wrap.style.display = 'flex'; img.src = url; } else { wrap.style.display = 'none'; }
 }
 document.getElementById('f_image').addEventListener('input', updateImagePreview);
+document.getElementById('f_promo').addEventListener('change', e => { document.getElementById('promoFields').style.display = e.target.checked ? 'grid' : 'none'; });
 
 document.getElementById('closeFormModal').addEventListener('click', () => hideOverlayAnd(formModal));
 document.getElementById('cancelFormBtn').addEventListener('click', () => hideOverlayAnd(formModal));
@@ -5093,6 +5101,8 @@ productForm.addEventListener('submit', (e) => {
     price,
     stock: parseInt(document.getElementById('f_stock').value, 10) || 0,
     promo: document.getElementById('f_promo').checked,
+    discount: Math.min(100, Math.max(0, parseFloat(document.getElementById('f_discount').value) || 0)),
+    promoPrice: Math.max(0, parseFloat(document.getElementById('f_promo_price').value) || 0),
     image: document.getElementById('f_image').value.trim(),
   };
   saveProductToCloud(editingId, data);
@@ -5126,7 +5136,7 @@ function renderDetail() {
     ? `<img src="${displayImage}" alt="${p.brand} ${p.model}" class="detail-photo" onerror="this.style.display='none';">${tireStampHtml(p.size, p.load)}`
     : `<div class="tire-ring detail-ring"><div class="tire-ring-inner"></div></div>${tireStampHtml(p.size, p.load)}`;
   document.getElementById('detailApp').textContent = p.app || '-';
-  document.getElementById('detailPrice').textContent = formatBRL(p.price);
+  document.getElementById('detailPrice').textContent = p.promo ? formatBRL(lpPromoPrice(p)) : formatBRL(p.price);
   document.getElementById('detailStock').textContent = p.stock > 0 ? p.stock + ' unidades' : 'Consultar';
   document.getElementById('qtyVal').textContent = qty;
   document.getElementById('detailTotal').textContent = formatBRL(p.price * qty);
@@ -5574,6 +5584,9 @@ function filteredSorted(){
     return priceSort==='asc'?pa-pb:pb-pa;
   });
 }
+function lpPromoPrice(p){const base=num(p?.price);const direct=num(p?.promoPrice);const d=Math.min(100,Math.max(0,num(p?.discount)));return p?.promo?(direct>0?direct:base*(1-d/100)):base;}
+function lpPromoPercent(p){const base=num(p?.price),final=lpPromoPrice(p);return base>0&&final<base?Math.round((1-final/base)*100):0;}
+function lpPromoText(p){const base=num(p?.price),final=lpPromoPrice(p),pct=lpPromoPercent(p);return p?.promo&&final<base?`<span style="text-decoration:line-through;color:#888;font-size:12px">${formatBRL(base)}</span> <b style="color:#ef1f2f;font-size:11px">-${pct}%</b> <strong>${formatBRL(final)}</strong>`:formatBRL(base);}
 
 /* Cards no visual da prévia */
 renderGrid=function(){
